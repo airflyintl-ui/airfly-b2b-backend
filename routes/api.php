@@ -174,56 +174,5 @@ Route::post(
 
 
 
-Route::post('/temporary-admin-setup', function (
-    \Illuminate\Http\Request $request
-) {
-    $setupKey = (string) config('admin.setup_key');
 
-    if (
-        $setupKey === '' ||
-        !hash_equals(
-            $setupKey,
-            (string) $request->header('X-Admin-Setup-Key')
-        )
-    ) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Unauthorized',
-        ], 401);
-    }
-
-    try {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('users')) {
-            throw new \RuntimeException('Users table does not exist.');
-        }
-
-        $exitCode = \Illuminate\Support\Facades\Artisan::call(
-            'db:seed',
-            [
-                '--class' => 'AdminSeeder',
-                '--force' => true,
-            ]
-        );
-
-        if ($exitCode !== 0) {
-            throw new \RuntimeException('Admin seeder failed.');
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Admin account created successfully.',
-            'email' => 'admin@airflyintl.com',
-        ]);
-
-    } catch (\Throwable $e) {
-        \Illuminate\Support\Facades\Log::error(
-            'Admin setup failed',
-            ['error' => $e->getMessage()]
-        );
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Admin setup failed. Check Render logs.',
-        ], 500);
-    }
 });
