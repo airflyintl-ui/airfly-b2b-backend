@@ -171,7 +171,7 @@ Route::post(
     '/recharges/{id}/reject',
     [RechargeController::class, 'reject']
 );
-// TEMPORARY ADMIN SETUP - DIAGNOSTIC
+// TEMPORARY ADMIN SETUP
 Route::post('/temporary-admin-setup', function (
     \Illuminate\Http\Request $request
 ) {
@@ -191,7 +191,22 @@ Route::post('/temporary-admin-setup', function (
     }
 
     try {
-        $exitCode = \Illuminate\Support\Facades\Artisan::call(
+        // Run pending database migrations
+        $migrationExitCode = \Illuminate\Support\Facades\Artisan::call(
+            'migrate',
+            ['--force' => true]
+        );
+
+        $migrationOutput = \Illuminate\Support\Facades\Artisan::output();
+
+        if ($migrationExitCode !== 0) {
+            throw new \RuntimeException(
+                'Migration failed: ' . $migrationOutput
+            );
+        }
+
+        // Create admin account
+        $seedExitCode = \Illuminate\Support\Facades\Artisan::call(
             'db:seed',
             [
                 '--class' => 'AdminSeeder',
@@ -199,21 +214,17 @@ Route::post('/temporary-admin-setup', function (
             ]
         );
 
-        $output = \Illuminate\Support\Facades\Artisan::output();
+        $seedOutput = \Illuminate\Support\Facades\Artisan::output();
 
-        if ($exitCode !== 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Seeder failed',
-                'exit_code' => $exitCode,
-                'output' => $output,
-            ], 500);
+        if ($seedExitCode !== 0) {
+            throw new \RuntimeException(
+                'Admin seeder failed: ' . $seedOutput
+            );
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Admin account created successfully.',
-            'output' => $output,
+            'message' => 'Database migrated and Admin created successfully.',
         ]);
 
     } catch (\Throwable $e) {
