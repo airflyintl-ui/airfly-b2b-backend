@@ -171,7 +171,8 @@ Route::post(
     '/recharges/{id}/reject',
     [RechargeController::class, 'reject']
 );
-// TEMPORARY ADMIN SETUP
+
+// TEMPORARY DATABASE STATUS CHECK
 Route::post('/temporary-admin-setup', function (
     \Illuminate\Http\Request $request
 ) {
@@ -191,56 +192,39 @@ Route::post('/temporary-admin-setup', function (
     }
 
     try {
-        // Run pending database migrations
-        $migrationExitCode = \Illuminate\Support\Facades\Artisan::call(
-            'migrate',
-            ['--force' => true]
-        );
+        $usersTableExists = \Illuminate\Support\Facades\Schema::hasTable('users');
+        $migrationsTableExists = \Illuminate\Support\Facades\Schema::hasTable('migrations');
 
-        $migrationOutput = \Illuminate\Support\Facades\Artisan::output();
+        $usersMigrationRecorded = false;
 
-        if ($migrationExitCode !== 0) {
-            throw new \RuntimeException(
-                'Migration failed: ' . $migrationOutput
-            );
-        }
-
-        // Create admin account
-        $seedExitCode = \Illuminate\Support\Facades\Artisan::call(
-            'db:seed',
-            [
-                '--class' => 'AdminSeeder',
-                '--force' => true,
-            ]
-        );
-
-        $seedOutput = \Illuminate\Support\Facades\Artisan::output();
-
-        if ($seedExitCode !== 0) {
-            throw new \RuntimeException(
-                'Admin seeder failed: ' . $seedOutput
-            );
+        if ($migrationsTableExists) {
+            $usersMigrationRecorded = \Illuminate\Support\Facades\DB::table('migrations')
+                ->where(
+                    'migration',
+                    '2014_10_12_000000_create_users_table'
+                )
+                ->exists();
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Database migrated and Admin created successfully.',
+            'message' => 'Database status checked successfully.',
+            'database_status' => [
+                'users_table_exists' => $usersTableExists,
+                'migrations_table_exists' => $migrationsTableExists,
+                'users_migration_recorded' => $usersMigrationRecorded,
+            ],
         ]);
 
     } catch (\Throwable $e) {
         \Illuminate\Support\Facades\Log::error(
-            'Admin setup failed',
-            [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]
+            'Database status check failed',
+            ['error' => $e->getMessage()]
         );
 
         return response()->json([
             'success' => false,
-            'error_type' => get_class($e),
-            'error_message' => $e->getMessage(),
+            'message' => 'Database status check failed.',
         ], 500);
     }
 });
