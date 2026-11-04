@@ -1,5 +1,5 @@
 <?php
-
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 /*
@@ -24,10 +24,14 @@ Route::get('/db-test', function () {
             'status' => 'success',
             'message' => 'Aiven MySQL Database Connected Successfully!'
         ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Database Connection Failed',
-        ], 500);
-    }
-});
+   } catch (\Exception $e) {
+
+    Log::error('Aiven DB connection failed', [
+        'error' => $e->getMessage()
+    ]);
+
+    return response()->json([
+        'status' => 'error',
+        'message' => 'Database Connection Failed'
+    ], 500);
+}
