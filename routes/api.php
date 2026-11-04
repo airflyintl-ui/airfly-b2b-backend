@@ -171,15 +171,18 @@ Route::post(
     '/recharges/{id}/reject',
     [RechargeController::class, 'reject']
 );
-// TEMPORARY ADMIN SETUP ROUTE
+// TEMPORARY ADMIN SETUP - DIAGNOSTIC
 Route::post('/temporary-admin-setup', function (
     \Illuminate\Http\Request $request
 ) {
-    $setupKey = (string) env('ADMIN_SETUP_KEY');
+    $setupKey = (string) config('admin.setup_key');
 
     if (
         $setupKey === '' ||
-        !hash_equals($setupKey, (string) $request->header('X-Admin-Setup-Key'))
+        !hash_equals(
+            $setupKey,
+            (string) $request->header('X-Admin-Setup-Key')
+        )
     ) {
         return response()->json([
             'success' => false,
@@ -188,7 +191,7 @@ Route::post('/temporary-admin-setup', function (
     }
 
     try {
-        \Illuminate\Support\Facades\Artisan::call(
+        $exitCode = \Illuminate\Support\Facades\Artisan::call(
             'db:seed',
             [
                 '--class' => 'AdminSeeder',
@@ -196,18 +199,37 @@ Route::post('/temporary-admin-setup', function (
             ]
         );
 
+        $output = \Illuminate\Support\Facades\Artisan::output();
+
+        if ($exitCode !== 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seeder failed',
+                'exit_code' => $exitCode,
+                'output' => $output,
+            ], 500);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Admin account created successfully.',
+            'output' => $output,
         ]);
+
     } catch (\Throwable $e) {
         \Illuminate\Support\Facades\Log::error(
-            'Admin setup failed: ' . $e->getMessage()
+            'Admin setup failed',
+            [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]
         );
 
         return response()->json([
             'success' => false,
-            'message' => 'Admin setup failed. Check server logs.',
+            'error_type' => get_class($e),
+            'error_message' => $e->getMessage(),
         ], 500);
     }
 });
