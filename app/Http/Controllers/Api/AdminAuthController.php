@@ -10,9 +10,6 @@ use Illuminate\Support\Facades\Hash;
 
 class AdminAuthController extends Controller
 {
-    /**
-     * ADMIN LOGIN
-     */
     public function login(Request $request)
     {
         $validated = $request->validate([
@@ -20,17 +17,11 @@ class AdminAuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        $admin = User::where(
-            'email',
-            $validated['email']
-        )->first();
+        $admin = User::where('email', $validated['email'])->first();
 
         if (
             !$admin ||
-            !Hash::check(
-                $validated['password'],
-                $admin->password
-            )
+            !Hash::check($validated['password'], $admin->password)
         ) {
             return response()->json([
                 'success' => false,
@@ -38,9 +29,7 @@ class AdminAuthController extends Controller
             ], 401);
         }
 
-        $token = $admin
-            ->createToken('admin-token')
-            ->plainTextToken;
+        $token = $admin->createToken('admin-token')->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -54,14 +43,11 @@ class AdminAuthController extends Controller
         ]);
     }
 
-    /**
-     * ADMIN LOGOUT
-     */
     public function logout(Request $request)
     {
         $admin = $request->user();
 
-        if ($admin) {
+        if ($admin && $admin->currentAccessToken()) {
             $admin->currentAccessToken()->delete();
         }
 
