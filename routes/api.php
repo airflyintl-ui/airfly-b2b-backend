@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\AdminDashboardController;
@@ -35,7 +35,8 @@ Route::get('/', function () {
 // ======================================================
 // AUTH
 // ======================================================
-
+// ADMIN LOGIN
+Route::post('/admin/login', [AdminAuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -143,6 +144,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 
+
 // ======================================================
 // ADMIN DASHBOARD
 // ======================================================
@@ -173,6 +175,11 @@ Route::post(
 );
 
 
+// ======================================================
+// ADMIN LOGOUT
+// ======================================================
 
-
-});
+Route::middleware('auth:sanctum')->post(
+    '/admin/logout',
+    [AdminAuthController::class, 'logout']
+);
