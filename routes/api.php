@@ -172,7 +172,7 @@ Route::post(
     [RechargeController::class, 'reject']
 );
 
-// TEMPORARY DATABASE STATUS CHECK
+
 Route::post('/temporary-admin-setup', function (
     \Illuminate\Http\Request $request
 ) {
@@ -192,39 +192,38 @@ Route::post('/temporary-admin-setup', function (
     }
 
     try {
-        $usersTableExists = \Illuminate\Support\Facades\Schema::hasTable('users');
-        $migrationsTableExists = \Illuminate\Support\Facades\Schema::hasTable('migrations');
+        if (!\Illuminate\Support\Facades\Schema::hasTable('users')) {
+            $exitCode = \Illuminate\Support\Facades\Artisan::call(
+                'migrate',
+                [
+                    '--path' => 'database/migrations/2014_10_12_000000_create_users_table.php',
+                    '--force' => true,
+                ]
+            );
 
-        $usersMigrationRecorded = false;
+            if ($exitCode !== 0) {
+                throw new \RuntimeException('Users migration failed.');
+            }
+        }
 
-        if ($migrationsTableExists) {
-            $usersMigrationRecorded = \Illuminate\Support\Facades\DB::table('migrations')
-                ->where(
-                    'migration',
-                    '2014_10_12_000000_create_users_table'
-                )
-                ->exists();
+        if (!\Illuminate\Support\Facades\Schema::hasTable('users')) {
+            throw new \RuntimeException('Users table was not created.');
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Database status checked successfully.',
-            'database_status' => [
-                'users_table_exists' => $usersTableExists,
-                'migrations_table_exists' => $migrationsTableExists,
-                'users_migration_recorded' => $usersMigrationRecorded,
-            ],
+            'message' => 'Users table created successfully.',
         ]);
 
     } catch (\Throwable $e) {
         \Illuminate\Support\Facades\Log::error(
-            'Database status check failed',
+            'Users migration failed',
             ['error' => $e->getMessage()]
         );
 
         return response()->json([
             'success' => false,
-            'message' => 'Database status check failed.',
+            'message' => 'Users migration failed. Check Render logs.',
         ], 500);
     }
 });
