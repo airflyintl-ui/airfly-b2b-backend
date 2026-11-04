@@ -1,4 +1,3 @@
-
 <?php
 
 namespace Database\Seeders;
@@ -11,7 +10,7 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
-        $password = env('ADMIN_PASSWORD');
+        $password = config('admin.password');
 
         if (!$password || strlen($password) < 12) {
             throw new \RuntimeException(
