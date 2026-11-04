@@ -16,10 +16,11 @@ Route::get('/db-test', function () {
             'message' => 'Aiven MySQL Database Connected Successfully!'
         ]);
 
-   } catch (\Throwable $e) {
+    } catch (\Throwable $e) {
 
-    return response()->json([
-        'status' => 'error',
-        'diagnostic' => substr($e->getMessage(), 0, 500)
-    ], 500);
-}
+        return response()->json([
+            'status' => 'error',
+            'diagnostic' => substr($e->getMessage(), 0, 500)
+        ], 500);
+    }
+});
