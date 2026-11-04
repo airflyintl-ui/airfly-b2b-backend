@@ -173,6 +173,7 @@ Route::post(
 );
 
 
+
 Route::post('/temporary-admin-setup', function (
     \Illuminate\Http\Request $request
 ) {
@@ -193,37 +194,36 @@ Route::post('/temporary-admin-setup', function (
 
     try {
         if (!\Illuminate\Support\Facades\Schema::hasTable('users')) {
-            $exitCode = \Illuminate\Support\Facades\Artisan::call(
-                'migrate',
-                [
-                    '--path' => 'database/migrations/2014_10_12_000000_create_users_table.php',
-                    '--force' => true,
-                ]
-            );
-
-            if ($exitCode !== 0) {
-                throw new \RuntimeException('Users migration failed.');
-            }
+            throw new \RuntimeException('Users table does not exist.');
         }
 
-        if (!\Illuminate\Support\Facades\Schema::hasTable('users')) {
-            throw new \RuntimeException('Users table was not created.');
+        $exitCode = \Illuminate\Support\Facades\Artisan::call(
+            'db:seed',
+            [
+                '--class' => 'AdminSeeder',
+                '--force' => true,
+            ]
+        );
+
+        if ($exitCode !== 0) {
+            throw new \RuntimeException('Admin seeder failed.');
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Users table created successfully.',
+            'message' => 'Admin account created successfully.',
+            'email' => 'admin@airflyintl.com',
         ]);
 
     } catch (\Throwable $e) {
         \Illuminate\Support\Facades\Log::error(
-            'Users migration failed',
+            'Admin setup failed',
             ['error' => $e->getMessage()]
         );
 
         return response()->json([
             'success' => false,
-            'message' => 'Users migration failed. Check Render logs.',
+            'message' => 'Admin setup failed. Check Render logs.',
         ], 500);
     }
 });
