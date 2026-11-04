@@ -11,13 +11,19 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
+        $password = env('ADMIN_PASSWORD');
+
+        if (!$password || strlen($password) < 12) {
+            throw new \RuntimeException(
+                'ADMIN_PASSWORD must be set and at least 12 characters long.'
+            );
+        }
+
         User::updateOrCreate(
             ['email' => 'admin@airflyintl.com'],
             [
                 'name' => 'Airfly Administrator',
-                'password' => Hash::make(
-                    env('ADMIN_PASSWORD', 'Elias@123!')
-                ),
+                'password' => Hash::make($password),
             ]
         );
     }
