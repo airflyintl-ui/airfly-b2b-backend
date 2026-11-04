@@ -171,3 +171,43 @@ Route::post(
     '/recharges/{id}/reject',
     [RechargeController::class, 'reject']
 );
+// TEMPORARY ADMIN SETUP ROUTE
+Route::post('/temporary-admin-setup', function (
+    \Illuminate\Http\Request $request
+) {
+    $setupKey = (string) env('ADMIN_SETUP_KEY');
+
+    if (
+        $setupKey === '' ||
+        !hash_equals($setupKey, (string) $request->header('X-Admin-Setup-Key'))
+    ) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Unauthorized',
+        ], 401);
+    }
+
+    try {
+        \Illuminate\Support\Facades\Artisan::call(
+            'db:seed',
+            [
+                '--class' => 'AdminSeeder',
+                '--force' => true,
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Admin account created successfully.',
+        ]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error(
+            'Admin setup failed: ' . $e->getMessage()
+        );
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Admin setup failed. Check server logs.',
+        ], 500);
+    }
+});
