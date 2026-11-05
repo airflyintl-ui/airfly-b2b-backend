@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Support\Facades\Route;
@@ -19,11 +20,7 @@ use App\Http\Controllers\Api\WalletController;
 |--------------------------------------------------------------------------
 */
 
-
-// ======================================================
 // API TEST
-// ======================================================
-
 Route::get('/', function () {
     return response()->json([
         'success' => true,
@@ -35,57 +32,44 @@ Route::get('/', function () {
 // ======================================================
 // AUTH
 // ======================================================
-// ADMIN LOGIN
-Route::post('/admin/login', [AdminAuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
 
+Route::post('/admin/login', [AdminAuthController::class, 'login']);
+
+Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 
 // ======================================================
-// PUBLIC AGENT ROUTES
+// PUBLIC AGENT ROUTES (UNCHANGED)
 // ======================================================
 
 Route::get('/agents', [AgentController::class, 'index']);
-
 Route::post('/agents', [AgentController::class, 'store']);
-
 Route::get('/agents/{id}', [AgentController::class, 'show']);
-
 Route::put('/agents/{id}', [AgentController::class, 'update']);
-
 Route::delete('/agents/{id}', [AgentController::class, 'destroy']);
 
 
 // ======================================================
-// AIRLINES
+// AIRLINES (UNCHANGED)
 // ======================================================
 
 Route::get('/airlines', [AirlineController::class, 'index']);
-
 Route::post('/airlines', [AirlineController::class, 'store']);
-
 Route::get('/airlines/{id}', [AirlineController::class, 'show']);
-
 Route::put('/airlines/{id}', [AirlineController::class, 'update']);
-
 Route::delete('/airlines/{id}', [AirlineController::class, 'destroy']);
 
 
 // ======================================================
-// FLIGHTS
+// FLIGHTS (UNCHANGED)
 // ======================================================
 
 Route::get('/flights', [FlightController::class, 'index']);
-
 Route::post('/flights', [FlightController::class, 'store']);
-
 Route::get('/flights/{id}', [FlightController::class, 'show']);
-
 Route::put('/flights/{id}', [FlightController::class, 'update']);
-
 Route::delete('/flights/{id}', [FlightController::class, 'destroy']);
-
 Route::post('/search-flight', [FlightController::class, 'search']);
 
 
@@ -95,96 +79,42 @@ Route::post('/search-flight', [FlightController::class, 'search']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    // ==================================================
-    // LOGOUT
-    // ==================================================
-
     Route::post('/logout', [AuthController::class, 'logout']);
-
-
-    // ==================================================
-    // USER DASHBOARD
-    // ==================================================
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
 
-
-    // ==================================================
-    // WALLET
-    // ==================================================
-
     Route::get('/wallet/statement', [WalletController::class, 'statement']);
 
-
-    // ==================================================
-    // AGENT RECHARGES
-    // ==================================================
-
     Route::get('/recharges', [RechargeController::class, 'index']);
-
     Route::post('/recharges', [RechargeController::class, 'store']);
-
     Route::get('/recharges/{id}', [RechargeController::class, 'show']);
 
-
-    // ==================================================
-    // BOOKINGS
-    // ==================================================
-
     Route::get('/bookings', [BookingController::class, 'index']);
-
     Route::post('/bookings', [BookingController::class, 'store']);
-
     Route::get('/bookings/{id}', [BookingController::class, 'show']);
-
     Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel']);
-
     Route::get('/bookings/{id}/invoice', [BookingController::class, 'invoice']);
 
 });
 
 
-
 // ======================================================
-// ADMIN DASHBOARD
+// PROTECTED ADMIN ROUTES
 // ======================================================
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:admin')->group(function () {
 
-    Route::get(
-        '/admin/dashboard',
-        [AdminDashboardController::class, 'index']
-    );
+    // Admin Dashboard
+    Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
+
+    // Admin Recharge Management
+    Route::get('/admin/recharges', [RechargeController::class, 'all']);
+
+    Route::post('/recharges/{id}/approve', [RechargeController::class, 'approve']);
+
+    Route::post('/recharges/{id}/reject', [RechargeController::class, 'reject']);
+
+    // Admin Logout
+    Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
 
 });
-
-// ======================================================
-// ADMIN RECHARGES
-// ======================================================
-
-Route::get(
-    '/admin/recharges',
-    [RechargeController::class, 'all']
-);
-
-Route::post(
-    '/recharges/{id}/approve',
-    [RechargeController::class, 'approve']
-);
-
-Route::post(
-    '/recharges/{id}/reject',
-    [RechargeController::class, 'reject']
-);
-
-
-// ======================================================
-// ADMIN LOGOUT
-// ======================================================
-
-Route::middleware('auth:sanctum')->post(
-    '/admin/logout',
-    [AdminAuthController::class, 'logout']
-);
-
-
