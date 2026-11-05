@@ -23,3 +23,36 @@ Route::get('/db-test', function () {
         ], 500);
     }
 });
+
+Route::get('/admin-db-check', function () {
+    try {
+        $tableExists = \Illuminate\Support\Facades\Schema::hasTable('users');
+
+        if (!$tableExists) {
+            return response()->json([
+                'success' => false,
+                'users_table_exists' => false,
+                'message' => 'Users table does not exist.'
+            ]);
+        }
+
+        $adminExists = \Illuminate\Support\Facades\DB::table('users')
+            ->where('email', 'admin@airflyintl.com')
+            ->exists();
+
+        return response()->json([
+            'success' => true,
+            'users_table_exists' => true,
+            'admin_exists' => $adminExists,
+            'message' => $adminExists
+                ? 'Admin account found.'
+                : 'Admin account not found.'
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Admin database check failed.'
+        ], 500);
+    }
+});
