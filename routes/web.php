@@ -2,10 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
 Route::get('/db-test', function () {
     try {
         DB::connection()->getPdo();
@@ -18,41 +20,36 @@ Route::get('/db-test', function () {
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Database Connection Failed',
-            'error' => $e->getMessage()
+            'message' => 'Database Connection Failed'
         ], 500);
     }
 });
 
 Route::get('/admin-db-check', function () {
     try {
-        $tableExists = \Illuminate\Support\Facades\Schema::hasTable('users');
+        $usersTable = Schema::hasTable('users');
+        $tokensTable = Schema::hasTable('personal_access_tokens');
 
-        if (!$tableExists) {
-            return response()->json([
-                'success' => false,
-                'users_table_exists' => false,
-                'message' => 'Users table does not exist.'
-            ]);
+        $adminExists = false;
+
+        if ($usersTable) {
+            $adminExists = DB::table('users')
+                ->where('email', 'admin@airflyintl.com')
+                ->exists();
         }
-
-        $adminExists = \Illuminate\Support\Facades\DB::table('users')
-            ->where('email', 'admin@airflyintl.com')
-            ->exists();
 
         return response()->json([
             'success' => true,
-            'users_table_exists' => true,
+            'users_table_exists' => $usersTable,
             'admin_exists' => $adminExists,
-            'message' => $adminExists
-                ? 'Admin account found.'
-                : 'Admin account not found.'
+            'personal_access_tokens_table_exists' => $tokensTable,
+            'message' => 'Admin database check completed.'
         ]);
 
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Admin database check failed.'
+            'message' => 'Database check failed.'
         ], 500);
     }
 });
