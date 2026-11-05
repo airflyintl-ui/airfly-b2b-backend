@@ -186,7 +186,7 @@ Route::middleware('auth:sanctum')->post(
 
 Route::post('/run-sanctum-migration', function (\Illuminate\Http\Request $request) {
 
-    $secret = config('admin.setup_key');
+    $secret = env('ADMIN_SETUP_KEY');
 
     if (!$secret || !hash_equals($secret, (string) $request->header('X-Migration-Key'))) {
         return response()->json([
