@@ -1,3 +1,4 @@
+
 <?php
 
 return [
@@ -14,9 +15,16 @@ return [
             'provider' => 'agents',
         ],
 
+        // Agent API Authentication
         'sanctum' => [
             'driver' => 'sanctum',
             'provider' => 'agents',
+        ],
+
+        // Admin API Authentication
+        'admin' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
         ],
 
     ],
@@ -26,6 +34,11 @@ return [
         'agents' => [
             'driver' => 'eloquent',
             'model' => App\Models\Agent::class,
+        ],
+
+        'users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\User::class,
         ],
 
     ],
