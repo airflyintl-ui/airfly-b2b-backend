@@ -149,11 +149,14 @@ Route::middleware('auth:sanctum')->group(function () {
 // ADMIN DASHBOARD
 // ======================================================
 
-Route::get(
-    '/admin/dashboard',
-    [AdminDashboardController::class, 'index']
-);
+Route::middleware('auth:sanctum')->group(function () {
 
+    Route::get(
+        '/admin/dashboard',
+        [AdminDashboardController::class, 'index']
+    );
+
+});
 
 // ======================================================
 // ADMIN RECHARGES
