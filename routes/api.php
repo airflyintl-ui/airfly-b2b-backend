@@ -188,7 +188,7 @@ Route::middleware('auth:sanctum')->post(
 Route::post('/run-sanctum-migration', function (\Illuminate\Http\Request $request) {
 
     $secret = config('admin.setup_key');
-    $provided = $request->header('X-Migration-Key');
+   $provided = $request->bearerToken();
 
     if (
         !$secret ||
