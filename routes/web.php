@@ -53,3 +53,33 @@ Route::get('/admin-db-check', function () {
         ], 500);
     }
 });
+
+Route::post('/run-sanctum-migration', function (\Illuminate\Http\Request $request) {
+    $secret = config('admin.setup_key');
+
+    if (!$secret || !hash_equals($secret, (string) $request->header('X-Migration-Key'))) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Unauthorized'
+        ], 403);
+    }
+
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', [
+            '--path' => 'database/migrations/2019_12_14_000001_create_personal_access_tokens_table.php',
+            '--force' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sanctum migration executed.',
+            'output' => \Illuminate\Support\Facades\Artisan::output()
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Migration failed.'
+        ], 500);
+    }
+});
