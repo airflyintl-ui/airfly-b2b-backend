@@ -184,14 +184,27 @@ Route::middleware('auth:sanctum')->post(
     [AdminAuthController::class, 'logout']
 );
 
+
 Route::post('/run-sanctum-migration', function (\Illuminate\Http\Request $request) {
 
-    $secret = env('ADMIN_SETUP_KEY');
+    $secret = config('admin.setup_key');
+    $provided = $request->header('X-Migration-Key');
 
-    if (!$secret || !hash_equals($secret, (string) $request->header('X-Migration-Key'))) {
+    if (
+        !$secret ||
+        !$provided ||
+        !hash_equals((string) $secret, (string) $provided)
+    ) {
         return response()->json([
             'success' => false,
-            'message' => 'Unauthorized'
+            'message' => 'Unauthorized',
+            'key_configured' => !empty($secret),
+            'header_received' => !empty($provided),
+            'key_matches' => (
+                !empty($secret) &&
+                !empty($provided) &&
+                hash_equals((string) $secret, (string) $provided)
+            )
         ], 403);
     }
 
