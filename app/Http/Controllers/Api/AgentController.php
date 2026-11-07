@@ -68,17 +68,23 @@ class AgentController extends Controller
             'status' => 'sometimes|required|in:pending,approved,rejected',
         ]);
 
+        // Convert phone to database column mobile
         if (isset($validated['phone'])) {
             $validated['mobile'] = $validated['phone'];
             unset($validated['phone']);
         }
 
-        $agent->update($validated);
+        // Save validated data directly
+        $agent->forceFill($validated);
+        $agent->save();
+
+        // Reload saved database record
+        $agent->refresh();
 
         return response()->json([
             'success' => true,
             'message' => 'Agent updated successfully.',
-            'agent' => $agent->fresh(),
+            'agent' => $agent,
         ]);
     }
 }
