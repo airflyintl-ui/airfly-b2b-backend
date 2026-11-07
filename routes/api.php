@@ -1,6 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Http\Request;
+
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
@@ -18,6 +21,40 @@ Route::get('/', function () {
         'success' => true,
         'message' => 'AirFly API Working Successfully',
     ]);
+});
+
+// TEMPORARY DATABASE MIGRATION
+Route::post('/run-database-migrations', function (Request $request) {
+
+    $secret = config('admin.setup_key');
+
+    if (
+        !$secret ||
+        !hash_equals($secret, (string) $request->header('X-Migration-Key'))
+    ) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Unauthorized',
+        ], 403);
+    }
+
+    try {
+        Artisan::call('migrate', [
+            '--force' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Database migrations completed.',
+            'output' => Artisan::output(),
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Migration failed. Check server logs.',
+        ], 500);
+    }
 });
 
 // AUTH
@@ -66,16 +103,13 @@ Route::middleware('auth:admin')->group(function () {
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
 
-    // Agent Management
     Route::get('/agents', [AgentController::class, 'index']);
     Route::get('/agents/{id}', [AgentController::class, 'show']);
     Route::put('/agents/{id}', [AgentController::class, 'update']);
 
-    // Recharge Management
     Route::get('/admin/recharges', [RechargeController::class, 'all']);
     Route::post('/recharges/{id}/approve', [RechargeController::class, 'approve']);
     Route::post('/recharges/{id}/reject', [RechargeController::class, 'reject']);
 
-    // Admin Logout
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
 });
