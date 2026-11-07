@@ -62,7 +62,8 @@ Route::post('/run-database-migrations', function (Request $request) {
 
     return response()->json([
         'success' => false,
-        'message' => 'Migration failed. Check Render logs.',
+        'message' => 'Migration failed.',
+        'error' => $e->getMessage(),
     ], 500);
 }
 });
