@@ -25,7 +25,7 @@ class AuthController extends Controller
             'agency_name' => $validated['agency_name'],
             'owner_name' => $validated['owner_name'],
             'email' => $validated['email'],
-            'phone' => $validated['phone'],
+            'mobile' => $validated['phone'],
             'address' => $validated['address'],
             'trade_license' => $validated['trade_license'],
             'password' => Hash::make($validated['password']),
@@ -56,7 +56,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        if ($agent->status !== 'active') {
+        if ($agent->status !== 'approved') {
             return response()->json([
                 'success' => false,
                 'message' => 'Your agency account is pending admin approval.',
