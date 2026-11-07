@@ -49,12 +49,22 @@ Route::post('/run-database-migrations', function (Request $request) {
             'output' => Artisan::output(),
         ]);
 
-    } catch (\Throwable $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Migration failed. Check server logs.',
-        ], 500);
-    }
+   } catch (\Throwable $e) {
+
+    \Illuminate\Support\Facades\Log::error(
+        'Database migration failed',
+        [
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ]
+    );
+
+    return response()->json([
+        'success' => false,
+        'message' => 'Migration failed. Check Render logs.',
+    ], 500);
+}
 });
 
 // AUTH
