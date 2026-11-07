@@ -13,54 +13,37 @@ class Agent extends Authenticatable
 
     protected $table = 'agents';
 
-    /**
-     * Mass Assignable Fields
-     */
     protected $fillable = [
         'agency_name',
         'owner_name',
         'email',
         'phone',
+        'address',
+        'trade_license',
         'password',
         'wallet',
         'status',
     ];
 
-    /**
-     * Hidden Fields
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Casts
-     */
     protected $casts = [
         'wallet' => 'decimal:2',
-        'email_verified_at' => 'datetime',
     ];
 
-    /**
-     * Agent has many Bookings
-     */
     public function bookings()
     {
         return $this->hasMany(Booking::class);
     }
 
-    /**
-     * Agent has many Recharge Requests
-     */
     public function recharges()
     {
         return $this->hasMany(Recharge::class);
     }
 
-    /**
-     * Agent has many Wallet Transactions
-     */
     public function walletTransactions()
     {
         return $this->hasMany(WalletTransaction::class);
