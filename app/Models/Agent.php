@@ -17,7 +17,7 @@ class Agent extends Authenticatable
         'agency_name',
         'owner_name',
         'email',
-        'phone',
+        'mobile',
         'address',
         'trade_license',
         'password',
