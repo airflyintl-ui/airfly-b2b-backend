@@ -77,19 +77,36 @@ require __DIR__.'/../vendor/autoload.php';
 
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
+
 $kernel = $app->make(Kernel::class);
 
-$request = Request::capture();
+try {
+    $request = Request::capture();
 
-$response = $kernel->handle($request);
+    $response = $kernel->handle($request);
 
-header('Content-Type: application/json');
+    header('Content-Type: application/json');
 
-echo json_encode([
-    'kernel' => true,
-    'status' => $response->getStatusCode(),
-    'content' => $response->getContent(),
-    'headers' => $response->headers->all(),
-]);
+    echo json_encode([
+        'stage' => 'kernel_returned',
+        'status' => $response->getStatusCode(),
+        'content_type' => $response->headers->get('Content-Type'),
+        'body_length' => strlen($response->getContent()),
+    ]);
+
+} catch (\Throwable $e) {
+
+    error_log('AIRFLY KERNEL ERROR: ' . $e);
+
+    http_response_code(500);
+    header('Content-Type: application/json');
+
+    echo json_encode([
+        'stage' => 'kernel_exception',
+        'error_type' => get_class($e),
+        'message' => 'Laravel Kernel failed. Check Render logs.'
+    ]);
+}
 
 exit;
+
