@@ -16,7 +16,7 @@ $requestPath = parse_url(
 
 if (
     $origin === $allowedOrigin &&
-    strpos($requestPath, '/api/') === 0
+    ($requestPath === '/api' || strpos($requestPath, '/api/') === 0)
 ) {
     header('Access-Control-Allow-Origin: ' . $allowedOrigin);
     header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -73,12 +73,15 @@ require __DIR__.'/../vendor/autoload.php';
 |
 */
 
+
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
 $kernel = $app->make(Kernel::class);
 
-$response = $kernel->handle(
-    $request = Request::capture()
-)->send();
+$request = Request::capture();
+
+$response = $kernel->handle($request);
+
+$response->send();
 
 $kernel->terminate($request, $response);
