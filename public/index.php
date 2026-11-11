@@ -31,7 +31,19 @@ if (
         exit;
     }
 }
+if (
+    $_SERVER['REQUEST_METHOD'] === 'GET' &&
+    ($requestPath === '/api' || $requestPath === '/api/')
+) {
+    header('Content-Type: application/json');
 
+    echo json_encode([
+        'test' => true,
+        'message' => 'AirFly PHP Entry Point Working'
+    ]);
+
+    exit;
+}
 define('LARAVEL_START', microtime(true));
 
 /*
