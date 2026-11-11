@@ -74,21 +74,22 @@ require __DIR__.'/../vendor/autoload.php';
 */
 
 
+
 $app = require_once __DIR__.'/../bootstrap/app.php';
-header('Content-Type: application/json');
 
-echo json_encode([
-    'test' => true,
-    'message' => 'Laravel Bootstrap Working Successfully'
-]);
-
-exit;
 $kernel = $app->make(Kernel::class);
 
 $request = Request::capture();
 
 $response = $kernel->handle($request);
 
-$response->send();
+header('Content-Type: application/json');
 
-$kernel->terminate($request, $response);
+echo json_encode([
+    'kernel' => true,
+    'status' => $response->getStatusCode(),
+    'content' => $response->getContent(),
+    'headers' => $response->headers->all(),
+]);
+
+exit;
