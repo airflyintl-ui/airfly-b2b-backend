@@ -33,7 +33,9 @@ RUN composer install \
     --prefer-dist \
     --optimize-autoloader \
     --no-scripts
+RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
 
+RUN php artisan package:discover --ansi -vvv
 RUN mkdir -p storage/framework/cache \
     storage/framework/sessions \
     storage/framework/views \
