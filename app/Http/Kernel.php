@@ -19,7 +19,9 @@ class Kernel extends HttpKernel
      *
      * @var array<string, array<int, class-string|string>>
      */
-    protected $middlewareGroups = [
+   protected $middleware = [
+    \Illuminate\Http\Middleware\HandleCors::class,
+];
         'web' => [
             \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
