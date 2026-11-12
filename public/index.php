@@ -78,9 +78,10 @@ require __DIR__.'/../vendor/autoload.php';
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
 
-$kernel = $app->make(Kernel::class);
 
 try {
+    $kernel = $app->make(Kernel::class);
+
     $request = Request::capture();
 
     $response = $kernel->handle($request);
@@ -104,9 +105,8 @@ try {
     echo json_encode([
         'stage' => 'kernel_exception',
         'error_type' => get_class($e),
-        'message' => 'Laravel Kernel failed. Check Render logs.'
+        'message' => $e->getMessage(),
     ]);
 }
 
 exit;
-
