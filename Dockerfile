@@ -35,7 +35,7 @@ RUN composer install \
     --no-scripts
 RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
 
-RUN php artisan package:discover --ansi -vvv
+
 RUN mkdir -p storage/framework/cache \
     storage/framework/sessions \
     storage/framework/views \
@@ -47,3 +47,4 @@ RUN chown -R www-data:www-data storage bootstrap/cache
 EXPOSE 10000
 
 CMD php artisan serve --host=0.0.0.0 --port=10000
+RUN php -d display_errors=1 -r "require 'vendor/autoload.php'; require 'bootstrap/app.php'; echo 'Laravel Bootstrap OK';"
