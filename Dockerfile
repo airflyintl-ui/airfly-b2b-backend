@@ -56,8 +56,4 @@ RUN php -d display_errors=1 -r "require 'vendor/autoload.php'; require 'bootstra
 EXPOSE 10000
 
 # Start Laravel server
-EXPOSE 10000
-
-
 CMD ["sh", "-c", "php -S 0.0.0.0:${PORT:-10000} -t public public/index.php"]
-
