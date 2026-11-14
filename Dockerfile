@@ -38,6 +38,8 @@ RUN composer install \
     --optimize-autoloader \
     --no-scripts
 
+# Clear Laravel configuration cache
+RUN php artisan config:clear
 # Create required Laravel directories
 RUN mkdir -p \
     bootstrap/cache \
