@@ -40,6 +40,7 @@ RUN composer install \
 
 # Clear Laravel configuration cache
 RUN php artisan config:clear
+RUN php artisan route:list --path=api/login
 # Create required Laravel directories
 RUN mkdir -p \
     bootstrap/cache \
