@@ -26,5 +26,7 @@ error_log('AIRFLY RESPONSE STATUS: ' . $response->getStatusCode());
 error_log('AIRFLY RESPONSE HEADERS: ' . json_encode($response->headers->all()));
 
 $response->send();
+error_log('AIRFLY PHP HEADERS SENT: ' . json_encode(headers_list()));
 
+error_log('AIRFLY HEADERS SENT STATUS: ' . (headers_sent() ? 'YES' : 'NO'));
 $kernel->terminate($request, $response);
