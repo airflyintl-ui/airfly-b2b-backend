@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -21,23 +23,40 @@ class AuthController extends Controller
             'password' => 'required|string|min:6|confirmed',
         ]);
 
-        $agent = Agent::create([
-            'agency_name' => $validated['agency_name'],
-            'owner_name' => $validated['owner_name'],
-            'email' => $validated['email'],
-            'mobile' => $validated['phone'],
-            'address' => $validated['address'],
-            'trade_license' => $validated['trade_license'],
-            'password' => Hash::make($validated['password']),
-            'wallet' => 0.00,
-            'status' => 'pending',
-        ]);
+        try {
+            $agent = Agent::create([
+                'agency_name' => $validated['agency_name'],
+                'owner_name' => $validated['owner_name'],
+                'email' => $validated['email'],
+                'mobile' => $validated['phone'],
+                'address' => $validated['address'],
+                'trade_license' => $validated['trade_license'],
+                'password' => Hash::make($validated['password']),
+                'wallet' => 0.00,
+                'status' => 'pending',
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Agency Registration Submitted Successfully. Please wait for admin approval.',
-            'agent' => $agent,
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Agency Registration Submitted Successfully. Please wait for admin approval.',
+                'agent' => $agent,
+            ], 201);
+
+        } catch (Throwable $e) {
+
+            Log::error('AIRFLY AGENT REGISTRATION FAILED', [
+                'email' => $validated['email'],
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Registration failed due to a server error. Please contact support.',
+            ], 500);
+        }
     }
 
     public function login(Request $request)
