@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class AgentController extends Controller
 {
@@ -68,23 +69,50 @@ class AgentController extends Controller
             'status' => 'sometimes|required|in:pending,approved,rejected',
         ]);
 
-        // Convert phone to database column mobile
         if (isset($validated['phone'])) {
             $validated['mobile'] = $validated['phone'];
             unset($validated['phone']);
         }
 
-        // Save validated data directly
         $agent->forceFill($validated);
         $agent->save();
-
-        // Reload saved database record
         $agent->refresh();
 
         return response()->json([
             'success' => true,
             'message' => 'Agent updated successfully.',
             'agent' => $agent,
+        ]);
+    }
+
+    /**
+     * POST /api/agents/{id}/reset-password
+     * Reset agent password by admin
+     */
+    public function resetPassword(Request $request, $id)
+    {
+        $agent = Agent::find($id);
+
+        if (!$agent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Agent not found.',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $agent->password = Hash::make($validated['password']);
+        $agent->save();
+
+        // Revoke existing agent login tokens
+        $agent->tokens()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Agent password reset successfully.',
         ]);
     }
 }
