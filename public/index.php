@@ -24,7 +24,12 @@ $response = $kernel->handle($request);
 error_log('AIRFLY RESPONSE STATUS: ' . $response->getStatusCode());
 
 error_log('AIRFLY RESPONSE HEADERS: ' . json_encode($response->headers->all()));
+$sentFile = '';
+$sentLine = 0;
 
+error_log('AIRFLY BEFORE SEND HEADERS: ' . (headers_sent($sentFile, $sentLine) ? 'YES' : 'NO'));
+
+error_log('AIRFLY BEFORE SEND LOCATION: ' . $sentFile . ':' . $sentLine);
 $response->send();
 error_log('AIRFLY PHP HEADERS SENT: ' . json_encode(headers_list()));
 
