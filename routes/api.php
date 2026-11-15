@@ -71,6 +71,9 @@ Route::middleware('auth:admin')->group(function () {
     Route::get('/agents/{id}', [AgentController::class, 'show']);
     Route::put('/agents/{id}', [AgentController::class, 'update']);
 
+    // Agent Password Reset
+    Route::post('/agents/{id}/reset-password', [AgentController::class, 'resetPassword']);
+
     // Recharge Management
     Route::get('/admin/recharges', [RechargeController::class, 'all']);
     Route::post('/recharges/{id}/approve', [RechargeController::class, 'approve']);
