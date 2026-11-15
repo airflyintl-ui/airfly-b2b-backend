@@ -9,6 +9,8 @@ class ForceCors
 {
     public function handle(Request $request, Closure $next)
     {
+        error_log('AIRFLY FORCE CORS MIDDLEWARE RUNNING');
+
         $allowedOrigin = 'https://airfly-b2b-portal-ij7d.vercel.app';
 
         if ($request->isMethod('OPTIONS') && $request->is('api/*')) {
