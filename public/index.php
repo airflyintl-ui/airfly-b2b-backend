@@ -16,8 +16,14 @@ $app = require_once __DIR__.'/../bootstrap/app.php';
 $kernel = $app->make(Kernel::class);
 
 $request = Request::capture();
+
 error_log('AIRFLY REQUEST: ' . $request->method() . ' ' . $request->path());
+
 $response = $kernel->handle($request);
+
+error_log('AIRFLY RESPONSE STATUS: ' . $response->getStatusCode());
+
+error_log('AIRFLY RESPONSE HEADERS: ' . json_encode($response->headers->all()));
 
 $response->send();
 
