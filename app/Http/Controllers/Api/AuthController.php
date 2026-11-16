@@ -11,19 +11,29 @@ use Throwable;
 
 class AuthController extends Controller
 {
+    /**
+     * AGENT REGISTRATION
+     * POST /api/register
+     */
     public function register(Request $request)
     {
-        $validated = $request->validate([
-            'agency_name' => 'required|string|max:255',
-            'owner_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:agents,email',
-            'phone' => 'required|string|max:30',
-            'address' => 'required|string',
-            'trade_license' => 'required|string|max:255|unique:agents,trade_license',
-            'password' => 'required|string|min:6|confirmed',
-        ]);
+        error_log('AIRFLY REGISTER STEP 1: Controller reached');
 
         try {
+            $validated = $request->validate([
+                'agency_name' => 'required|string|max:255',
+                'owner_name' => 'required|string|max:255',
+                'email' => 'required|email|max:255|unique:agents,email',
+                'phone' => 'required|string|max:30',
+                'address' => 'required|string',
+                'trade_license' => 'required|string|max:255|unique:agents,trade_license',
+                'password' => 'required|string|min:6|confirmed',
+            ]);
+
+            error_log('AIRFLY REGISTER STEP 2: Validation passed');
+
+            error_log('AIRFLY REGISTER STEP 3: Creating agent');
+
             $agent = Agent::create([
                 'agency_name' => $validated['agency_name'],
                 'owner_name' => $validated['owner_name'],
@@ -36,16 +46,28 @@ class AuthController extends Controller
                 'status' => 'pending',
             ]);
 
+            error_log('AIRFLY REGISTER STEP 4: Agent created successfully');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Agency Registration Submitted Successfully. Please wait for admin approval.',
                 'agent' => $agent,
             ], 201);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            error_log('AIRFLY REGISTER VALIDATION FAILED: ' . json_encode($e->errors()));
+
+            throw $e;
+
         } catch (Throwable $e) {
 
+            error_log('AIRFLY REGISTER FAILED: ' . get_class($e));
+            error_log('AIRFLY REGISTER ERROR: ' . $e->getMessage());
+            error_log('AIRFLY REGISTER FILE: ' . $e->getFile());
+            error_log('AIRFLY REGISTER LINE: ' . $e->getLine());
+
             Log::error('AIRFLY AGENT REGISTRATION FAILED', [
-                'email' => $validated['email'],
                 'exception' => get_class($e),
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -59,6 +81,10 @@ class AuthController extends Controller
         }
     }
 
+    /**
+     * AGENT LOGIN
+     * POST /api/login
+     */
     public function login(Request $request)
     {
         $request->validate([
@@ -94,6 +120,10 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * AGENT LOGOUT
+     * POST /api/logout
+     */
     public function logout(Request $request)
     {
         $token = $request->user()->currentAccessToken();
