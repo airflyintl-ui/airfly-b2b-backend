@@ -8,15 +8,12 @@ use App\Models\Recharge;
 use App\Models\Agent;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class RechargeController extends Controller
 {
     /**
-     * =====================================================
      * AGENT RECHARGE LIST
-     * =====================================================
-     *
-     * Logged-in agent can see ONLY their own recharge requests.
      */
     public function index(Request $request)
     {
@@ -29,10 +26,7 @@ class RechargeController extends Controller
             ], 401);
         }
 
-        $recharges = Recharge::where(
-            'agent_id',
-            $agent->id
-        )
+        $recharges = Recharge::where('agent_id', $agent->id)
             ->latest()
             ->get();
 
@@ -42,14 +36,58 @@ class RechargeController extends Controller
         ]);
     }
 
+    /**
+     * UPLOAD PAYMENT SLIP TO CLOUDINARY
+     */
+    private function uploadSlipToCloudinary($file)
+    {
+        $cloudName = env('CLOUDINARY_CLOUD_NAME');
+        $apiKey = env('CLOUDINARY_API_KEY');
+        $apiSecret = env('CLOUDINARY_API_SECRET');
+
+        if (!$cloudName || !$apiKey || !$apiSecret) {
+            throw new \Exception('Cloudinary configuration is missing.');
+        }
+
+        $timestamp = time();
+        $folder = 'airfly/recharge-slips';
+
+        // Cloudinary signature
+        $stringToSign = 'folder=' . $folder
+            . '&timestamp=' . $timestamp;
+
+        $signature = sha1($stringToSign . $apiSecret);
+
+        $url = "https://api.cloudinary.com/v1_1/{$cloudName}/image/upload";
+
+        $response = Http::timeout(60)
+            ->attach(
+                'file',
+                file_get_contents($file->getRealPath()),
+                $file->getClientOriginalName()
+            )
+            ->post($url, [
+                'api_key' => $apiKey,
+                'timestamp' => $timestamp,
+                'folder' => $folder,
+                'signature' => $signature,
+            ]);
+
+        if (!$response->successful()) {
+            throw new \Exception('Cloudinary upload failed.');
+        }
+
+        $result = $response->json();
+
+        if (empty($result['secure_url'])) {
+            throw new \Exception('Cloudinary did not return a file URL.');
+        }
+
+        return $result['secure_url'];
+    }
 
     /**
-     * =====================================================
      * SUBMIT RECHARGE REQUEST
-     * =====================================================
-     *
-     * Agent ID is taken from authenticated user.
-     * Frontend cannot choose another agent ID.
      */
     public function store(Request $request)
     {
@@ -62,7 +100,7 @@ class RechargeController extends Controller
             ], 401);
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'amount' => [
                 'required',
                 'numeric',
@@ -83,50 +121,48 @@ class RechargeController extends Controller
 
             'slip' => [
                 'nullable',
-                'string',
-                'max:255'
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120'
             ],
         ]);
 
+        // Upload slip if provided
+        $slipUrl = null;
 
-        /*
-         * Create recharge request
-         */
+        if ($request->hasFile('slip')) {
+            try {
+                $slipUrl = $this->uploadSlipToCloudinary(
+                    $request->file('slip')
+                );
+            } catch (\Throwable $e) {
+                \Log::error('Airfly Cloudinary upload error: ' . $e->getMessage());
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment slip upload failed. Please try again.'
+                ], 500);
+            }
+        }
+
         $recharge = Recharge::create([
             'agent_id' => $agent->id,
-
-            'amount' => $request->amount,
-
-            'payment_method' =>
-                $request->payment_method,
-
-            'transaction_id' =>
-                $request->transaction_id,
-
-            'slip' =>
-                $request->slip,
-
+            'amount' => $validated['amount'],
+            'payment_method' => $validated['payment_method'],
+            'transaction_id' => $validated['transaction_id'],
+            'slip' => $slipUrl,
             'status' => 'Pending',
         ]);
 
-
         return response()->json([
             'success' => true,
-
-            'message' =>
-                'Recharge Request Submitted Successfully',
-
+            'message' => 'Recharge Request Submitted Successfully',
             'recharge' => $recharge
         ], 201);
     }
 
-
     /**
-     * =====================================================
      * SINGLE AGENT RECHARGE
-     * =====================================================
-     *
-     * Agent can only view their own recharge.
      */
     public function show(Request $request, $id)
     {
@@ -139,26 +175,16 @@ class RechargeController extends Controller
             ], 401);
         }
 
-
-        $recharge = Recharge::where(
-            'id',
-            $id
-        )
-            ->where(
-                'agent_id',
-                $agent->id
-            )
+        $recharge = Recharge::where('id', $id)
+            ->where('agent_id', $agent->id)
             ->first();
-
 
         if (!$recharge) {
             return response()->json([
                 'success' => false,
-                'message' =>
-                    'Recharge not found or unauthorized'
+                'message' => 'Recharge not found or unauthorized'
             ], 404);
         }
-
 
         return response()->json([
             'success' => true,
@@ -166,15 +192,8 @@ class RechargeController extends Controller
         ]);
     }
 
-
     /**
-     * =====================================================
      * ADMIN RECHARGE LIST
-     * =====================================================
-     *
-     * IMPORTANT:
-     * This route should later be protected
-     * with admin authorization middleware.
      */
     public function all()
     {
@@ -182,239 +201,108 @@ class RechargeController extends Controller
             ->latest()
             ->get();
 
-
         return response()->json([
             'success' => true,
             'recharges' => $recharges
         ]);
     }
 
-
     /**
-     * =====================================================
      * APPROVE RECHARGE
-     * =====================================================
-     *
-     * When admin approves:
-     *
-     * Recharge:
-     * Pending -> Approved
-     *
-     * Agent wallet:
-     * wallet + recharge amount
-     *
-     * Wallet transaction:
-     * Credit transaction created
-     *
-     * Database transaction + row locking prevents
-     * double approval.
      */
     public function approve($id)
     {
         return DB::transaction(function () use ($id) {
 
-
-            /*
-             * Lock recharge row.
-             *
-             * This prevents two admins from approving
-             * the same recharge simultaneously.
-             */
-            $recharge = Recharge::where(
-                'id',
-                $id
-            )
+            $recharge = Recharge::where('id', $id)
                 ->lockForUpdate()
                 ->first();
-
 
             if (!$recharge) {
                 return response()->json([
                     'success' => false,
-                    'message' =>
-                        'Recharge request not found'
+                    'message' => 'Recharge request not found'
                 ], 404);
             }
 
-
-            /*
-             * Only Pending recharge can be approved.
-             */
             if ($recharge->status !== 'Pending') {
-
                 return response()->json([
                     'success' => false,
-
-                    'message' =>
-                        'Only Pending recharge can be approved.',
-
-                    'current_status' =>
-                        $recharge->status
-
+                    'message' => 'Only Pending recharge can be approved.',
+                    'current_status' => $recharge->status
                 ], 422);
             }
 
-
-            /*
-             * Lock agent wallet row.
-             */
-            $agent = Agent::where(
-                'id',
-                $recharge->agent_id
-            )
+            $agent = Agent::where('id', $recharge->agent_id)
                 ->lockForUpdate()
                 ->first();
-
 
             if (!$agent) {
                 return response()->json([
                     'success' => false,
-                    'message' =>
-                        'Agent not found'
+                    'message' => 'Agent not found'
                 ], 404);
             }
 
-
-            /*
-             * Add recharge amount to wallet.
-             */
-            $agent->wallet =
-                (float) $agent->wallet
-                +
-                (float) $recharge->amount;
-
+            $agent->wallet = (float) $agent->wallet
+                + (float) $recharge->amount;
 
             $agent->save();
 
-
-            /*
-             * Update recharge status.
-             */
             $recharge->status = 'Approved';
-
             $recharge->save();
 
-
-            /*
-             * Create wallet transaction.
-             */
             WalletTransaction::create([
-
-                'agent_id' =>
-                    $agent->id,
-
-                'type' =>
-                    'Credit',
-
-                'amount' =>
-                    $recharge->amount,
-
-                'balance_after' =>
-                    $agent->wallet,
-
-                'reference' =>
-                    'Recharge-' .
-                    $recharge->id,
-
-                'remarks' =>
-                    'Wallet Recharge Approved',
+                'agent_id' => $agent->id,
+                'type' => 'Credit',
+                'amount' => $recharge->amount,
+                'balance_after' => $agent->wallet,
+                'reference' => 'Recharge-' . $recharge->id,
+                'remarks' => 'Wallet Recharge Approved',
             ]);
 
-
-            /*
-             * Return success response.
-             */
             return response()->json([
-
                 'success' => true,
-
-                'message' =>
-                    'Recharge Approved Successfully',
-
-                'recharge' =>
-                    $recharge,
-
-                'wallet_balance' =>
-                    $agent->wallet,
-
+                'message' => 'Recharge Approved Successfully',
+                'recharge' => $recharge,
+                'wallet_balance' => $agent->wallet,
             ]);
         });
     }
 
-
     /**
-     * =====================================================
      * REJECT RECHARGE
-     * =====================================================
-     *
-     * Only Pending recharge can be rejected.
      */
     public function reject($id)
     {
         return DB::transaction(function () use ($id) {
 
-
-            /*
-             * Lock recharge row.
-             */
-            $recharge = Recharge::where(
-                'id',
-                $id
-            )
+            $recharge = Recharge::where('id', $id)
                 ->lockForUpdate()
                 ->first();
-
 
             if (!$recharge) {
                 return response()->json([
                     'success' => false,
-                    'message' =>
-                        'Recharge request not found'
+                    'message' => 'Recharge request not found'
                 ], 404);
             }
 
-
-            /*
-             * Only Pending recharge can be rejected.
-             */
             if ($recharge->status !== 'Pending') {
-
                 return response()->json([
                     'success' => false,
-
-                    'message' =>
-                        'Only Pending recharge can be rejected.',
-
-                    'current_status' =>
-                        $recharge->status
-
+                    'message' => 'Only Pending recharge can be rejected.',
+                    'current_status' => $recharge->status
                 ], 422);
             }
 
-
-            /*
-             * Change status.
-             */
-            $recharge->status =
-                'Rejected';
-
+            $recharge->status = 'Rejected';
             $recharge->save();
 
-
-            /*
-             * No wallet transaction is created
-             * for rejected recharge.
-             */
             return response()->json([
-
                 'success' => true,
-
-                'message' =>
-                    'Recharge Rejected Successfully',
-
-                'recharge' =>
-                    $recharge,
-
+                'message' => 'Recharge Rejected Successfully',
+                'recharge' => $recharge,
             ]);
         });
     }
