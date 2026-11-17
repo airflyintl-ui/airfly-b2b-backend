@@ -9,29 +9,10 @@ use Throwable;
 
 class Handler extends ExceptionHandler
 {
-    /**
-     * A list of exception types with their corresponding custom log levels.
-     *
-     * @var array<class-string<\Throwable>, \Psr\Log\LogLevel::*>
-     */
-    protected $levels = [
-        //
-    ];
+    protected $levels = [];
 
-    /**
-     * A list of the exception types that are not reported.
-     *
-     * @var array<int, class-string<\Throwable>>
-     */
-    protected $dontReport = [
-        //
-    ];
+    protected $dontReport = [];
 
-    /**
-     * A list of the inputs that are never flashed to the session.
-     *
-     * @var array<int, string>
-     */
     protected $dontFlash = [
         'current_password',
         'password',
@@ -54,18 +35,17 @@ class Handler extends ExceptionHandler
     }
 
     /**
-     * Register the exception handling callbacks for the application.
-     *
-     * @return void
+     * Register exception handling callbacks.
      */
-  public function register()
-{
-    $this->reportable(function (Throwable $e) {
-        \Illuminate\Support\Facades\Log::error('AIRFLY API EXCEPTION', [
-            'exception' => get_class($e),
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-        ]);
-    });
+    public function register()
+    {
+        $this->reportable(function (Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('AIRFLY API EXCEPTION', [
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+        });
+    }
 }
