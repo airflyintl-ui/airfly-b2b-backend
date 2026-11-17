@@ -26,19 +26,13 @@ Route::post('/admin/login', [AdminAuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// AIRLINES
+// PUBLIC AIRLINES
 Route::get('/airlines', [AirlineController::class, 'index']);
-Route::post('/airlines', [AirlineController::class, 'store']);
 Route::get('/airlines/{id}', [AirlineController::class, 'show']);
-Route::put('/airlines/{id}', [AirlineController::class, 'update']);
-Route::delete('/airlines/{id}', [AirlineController::class, 'destroy']);
 
-// FLIGHTS
+// PUBLIC FLIGHTS
 Route::get('/flights', [FlightController::class, 'index']);
-Route::post('/flights', [FlightController::class, 'store']);
 Route::get('/flights/{id}', [FlightController::class, 'show']);
-Route::put('/flights/{id}', [FlightController::class, 'update']);
-Route::delete('/flights/{id}', [FlightController::class, 'destroy']);
 Route::post('/search-flight', [FlightController::class, 'search']);
 
 // PROTECTED AGENT ROUTES
@@ -65,6 +59,16 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
 Route::middleware(['auth:admin', 'admin.only'])->group(function () {
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
+
+    // AIRLINE MANAGEMENT - ADMIN ONLY
+    Route::post('/airlines', [AirlineController::class, 'store']);
+    Route::put('/airlines/{id}', [AirlineController::class, 'update']);
+    Route::delete('/airlines/{id}', [AirlineController::class, 'destroy']);
+
+    // FLIGHT MANAGEMENT - ADMIN ONLY
+    Route::post('/flights', [FlightController::class, 'store']);
+    Route::put('/flights/{id}', [FlightController::class, 'update']);
+    Route::delete('/flights/{id}', [FlightController::class, 'destroy']);
 
     // Agent Management
     Route::get('/agents', [AgentController::class, 'index']);
