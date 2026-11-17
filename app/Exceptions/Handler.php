@@ -1,4 +1,3 @@
-
 <?php
 
 namespace App\Exceptions;
@@ -59,10 +58,14 @@ class Handler extends ExceptionHandler
      *
      * @return void
      */
-    public function register()
-    {
-        $this->reportable(function (Throwable $e) {
-            //
-        });
-    }
+  public function register()
+{
+    $this->reportable(function (Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('AIRFLY API EXCEPTION', [
+            'exception' => get_class($e),
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ]);
+    });
 }
