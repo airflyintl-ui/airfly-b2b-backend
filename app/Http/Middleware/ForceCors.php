@@ -22,7 +22,16 @@ class ForceCors
                 ->header('X-Airfly-CORS', 'ForceCors-Diagnostic');
         }
 
-        $response = $next($request);
+        try {
+    $response = $next($request);
+} catch (\Throwable $e) {
+    error_log('AIRFLY PIPELINE EXCEPTION: ' . get_class($e));
+    error_log('AIRFLY ERROR MESSAGE: ' . $e->getMessage());
+    error_log('AIRFLY ERROR FILE: ' . $e->getFile());
+    error_log('AIRFLY ERROR LINE: ' . $e->getLine());
+
+    throw $e;
+}
 
         $response->headers->set('X-Airfly-CORS', 'ForceCors-Diagnostic');
 
