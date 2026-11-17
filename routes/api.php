@@ -42,7 +42,7 @@ Route::delete('/flights/{id}', [FlightController::class, 'destroy']);
 Route::post('/search-flight', [FlightController::class, 'search']);
 
 // PROTECTED AGENT ROUTES
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -62,7 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // PROTECTED ADMIN ROUTES
-Route::middleware('auth:admin')->group(function () {
+Route::middleware(['auth:admin', 'admin.only'])->group(function () {
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
 
