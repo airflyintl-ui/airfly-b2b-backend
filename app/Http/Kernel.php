@@ -10,9 +10,8 @@ class Kernel extends HttpKernel
      * The application's global HTTP middleware stack.
      */
     protected $middleware = [
-        \App\Http\Middleware\ForceCors::class,
-        \Illuminate\Http\Middleware\HandleCors::class,
-    ];
+    \Illuminate\Http\Middleware\HandleCors::class,
+];
 
     /**
      * The application's route middleware groups.
