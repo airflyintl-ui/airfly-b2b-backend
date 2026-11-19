@@ -10,6 +10,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
+        'https://airfly-b2b-portal.vercel.app',
         'https://airfly-b2b-portal-ij7d.vercel.app',
         'http://localhost:3000',
     ],
