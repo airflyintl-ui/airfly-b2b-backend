@@ -82,7 +82,12 @@ Route::middleware(['auth:admin', 'admin.only'])->group(function () {
     Route::get('/admin/recharges', [RechargeController::class, 'all']);
     Route::post('/recharges/{id}/approve', [RechargeController::class, 'approve']);
     Route::post('/recharges/{id}/reject', [RechargeController::class, 'reject']);
+   // ADMIN WALLET MANAGEMENT
+    Route::get('/admin/agents/wallets', [WalletController::class, 'adminIndex']);
 
+    Route::get('/admin/agents/{id}/wallet-transactions', [WalletController::class, 'adminStatement']);
+
+    Route::post('/admin/agents/{id}/wallet-adjustments', [WalletController::class, 'adminAdjust']);
     // Admin Logout
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
 });
