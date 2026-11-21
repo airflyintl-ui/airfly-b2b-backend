@@ -12,6 +12,7 @@ return [
     'allowed_origins' => [
         'https://airfly-b2b-portal.vercel.app',
         'https://airfly-b2b-portal-ij7d.vercel.app',
+        'https://airfly-b2b-portal-git-main-airflyintl-uis-projects.vercel.app',
         'http://localhost:3000',
     ],
 
