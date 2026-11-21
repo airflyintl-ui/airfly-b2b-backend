@@ -89,23 +89,7 @@ Route::middleware(['auth:admin', 'admin.only'])->group(function () {
     Route::get('/admin/agents/{id}/wallet-transactions', [WalletController::class, 'adminStatement']);
     Route::post('/admin/agents/{id}/wallet-adjustments', [WalletController::class, 'adminAdjust']);
 
-    // TEMPORARY: RUN SYSTEM SETTINGS MIGRATION
-    Route::post('/admin/run-settings-migration', function () {
-
-        $exitCode = \Illuminate\Support\Facades\Artisan::call('migrate', [
-            '--path' => 'database/migrations/2026_11_21_000000_create_system_settings_table.php',
-            '--force' => true,
-        ]);
-
-        return response()->json([
-            'success' => $exitCode === 0,
-            'message' => $exitCode === 0
-                ? 'System settings migration completed.'
-                : 'Migration failed.',
-            'output' => \Illuminate\Support\Facades\Artisan::output(),
-        ], $exitCode === 0 ? 200 : 500);
-    });
-
+   
     // ADMIN LOGOUT
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
 
