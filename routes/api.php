@@ -53,6 +53,7 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
     Route::get('/bookings/{id}', [BookingController::class, 'show']);
     Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel']);
     Route::get('/bookings/{id}/invoice', [BookingController::class, 'invoice']);
+
 });
 
 // PROTECTED ADMIN ROUTES
@@ -60,34 +61,52 @@ Route::middleware(['auth:admin', 'admin.only'])->group(function () {
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
 
-    // AIRLINE MANAGEMENT - ADMIN ONLY
+    // AIRLINE MANAGEMENT
     Route::post('/airlines', [AirlineController::class, 'store']);
     Route::put('/airlines/{id}', [AirlineController::class, 'update']);
     Route::delete('/airlines/{id}', [AirlineController::class, 'destroy']);
 
-    // FLIGHT MANAGEMENT - ADMIN ONLY
+    // FLIGHT MANAGEMENT
     Route::post('/flights', [FlightController::class, 'store']);
     Route::put('/flights/{id}', [FlightController::class, 'update']);
     Route::delete('/flights/{id}', [FlightController::class, 'destroy']);
 
-    // Agent Management
+    // AGENT MANAGEMENT
     Route::get('/agents', [AgentController::class, 'index']);
     Route::get('/agents/{id}', [AgentController::class, 'show']);
     Route::put('/agents/{id}', [AgentController::class, 'update']);
 
-    // Agent Password Reset
+    // AGENT PASSWORD RESET
     Route::post('/agents/{id}/reset-password', [AgentController::class, 'resetPassword']);
 
-    // Recharge Management
+    // RECHARGE MANAGEMENT
     Route::get('/admin/recharges', [RechargeController::class, 'all']);
     Route::post('/recharges/{id}/approve', [RechargeController::class, 'approve']);
     Route::post('/recharges/{id}/reject', [RechargeController::class, 'reject']);
-   // ADMIN WALLET MANAGEMENT
+
+    // ADMIN WALLET MANAGEMENT
     Route::get('/admin/agents/wallets', [WalletController::class, 'adminIndex']);
-
     Route::get('/admin/agents/{id}/wallet-transactions', [WalletController::class, 'adminStatement']);
-
     Route::post('/admin/agents/{id}/wallet-adjustments', [WalletController::class, 'adminAdjust']);
-    // Admin Logout
+
+    // TEMPORARY: RUN SYSTEM SETTINGS MIGRATION
+    Route::post('/admin/run-settings-migration', function () {
+
+        $exitCode = \Illuminate\Support\Facades\Artisan::call('migrate', [
+            '--path' => 'database/migrations/2026_11_21_000000_create_system_settings_table.php',
+            '--force' => true,
+        ]);
+
+        return response()->json([
+            'success' => $exitCode === 0,
+            'message' => $exitCode === 0
+                ? 'System settings migration completed.'
+                : 'Migration failed.',
+            'output' => \Illuminate\Support\Facades\Artisan::output(),
+        ], $exitCode === 0 ? 200 : 500);
+    });
+
+    // ADMIN LOGOUT
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
+
 });
