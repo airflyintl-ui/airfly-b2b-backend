@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AgentController;
 use App\Http\Controllers\Api\FlightController;
+use App\Http\Controllers\Api\LetsFgSandboxController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\RechargeController;
 use App\Http\Controllers\Api\AirlineController;
@@ -42,7 +43,8 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
-
+// LETSFG SANDBOX FLIGHT SEARCH - TEST ONLY
+    Route::post('/sandbox/search-flight', [LetsFgSandboxController::class, 'search']);
     Route::get('/wallet/statement', [WalletController::class, 'statement']);
 
     Route::get('/recharges', [RechargeController::class, 'index']);
