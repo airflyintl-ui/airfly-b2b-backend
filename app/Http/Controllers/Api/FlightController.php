@@ -5,8 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Flight;
-use App\Models\Airline;
-use App\Services\TravelportService;
+use App\Services\LetsFGService;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class FlightController extends Controller
 {
@@ -22,7 +23,6 @@ class FlightController extends Controller
                 ->get()
         ]);
     }
-
 
     /**
      * Add Flight
@@ -43,31 +43,14 @@ class FlightController extends Controller
 
         $flight = Flight::create([
             'airline_id' => $request->airline_id,
-
-            'flight_no' =>
-                strtoupper($request->flight_no),
-
-            'from' =>
-                strtoupper($request->from),
-
-            'to' =>
-                strtoupper($request->to),
-
-            'departure_time' =>
-                $request->departure_time,
-
-            'arrival_time' =>
-                $request->arrival_time,
-
-            'economy_fare' =>
-                $request->economy_fare,
-
-            'business_fare' =>
-                $request->business_fare,
-
-            'available_seats' =>
-                $request->available_seats,
-
+            'flight_no' => strtoupper($request->flight_no),
+            'from' => strtoupper($request->from),
+            'to' => strtoupper($request->to),
+            'departure_time' => $request->departure_time,
+            'arrival_time' => $request->arrival_time,
+            'economy_fare' => $request->economy_fare,
+            'business_fare' => $request->business_fare,
+            'available_seats' => $request->available_seats,
             'status' => 1,
         ]);
 
@@ -78,331 +61,158 @@ class FlightController extends Controller
         ]);
     }
 
-
     /**
-     * Flight Search
+     * Main Flight Search
      *
-     * This endpoint searches LIVE flights
-     * from Travelport GDS.
-     *
-     * Route:
      * POST /api/search-flight
+     *
+     * Current supplier: LetsFG Sandbox
      */
     public function search(
         Request $request,
-        TravelportService $travelport
+        LetsFGService $letsFG
     ) {
-        /*
-        |--------------------------------------------------------------------------
-        | Validation
-        |--------------------------------------------------------------------------
-        */
-
         $request->validate([
+            'from' => 'required|string|size:3',
+            'to' => 'required|string|size:3',
 
-            'from' =>
-                'required|string|size:3',
+            'date' => 'nullable|date_format:Y-m-d',
+            'departure_date' => 'nullable|date_format:Y-m-d',
 
-            'to' =>
-                'required|string|size:3',
+            'return_date' => 'nullable|date_format:Y-m-d',
 
-            /*
-            | Frontend can send either:
-            | date
-            | OR
-            | departure_date
-            */
+            'trip_type' => 'nullable|in:oneway,roundtrip',
 
-            'date' =>
-                'nullable|date_format:Y-m-d',
+            'adults' => 'nullable|integer|min:1|max:9',
+            'children' => 'nullable|integer|min:0|max:9',
+            'infants' => 'nullable|integer|min:0|max:9',
 
-            'departure_date' =>
-                'nullable|date_format:Y-m-d',
-
-            'return_date' =>
-                'nullable|date_format:Y-m-d',
-
-            'trip_type' =>
-                'nullable|in:oneway,roundtrip',
-
-            'adults' =>
-                'nullable|integer|min:1|max:9',
-
-            'children' =>
-                'nullable|integer|min:0|max:9',
-
-            'infants' =>
-                'nullable|integer|min:0|max:9',
+            'cabin_class' => 'nullable|in:M,W,C,F',
+            'max_stopovers' => 'nullable|integer|min:0|max:4',
+            'limit' => 'nullable|integer|min:1|max:200',
         ]);
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Departure Date
-        |--------------------------------------------------------------------------
-        */
-
-        $departureDate =
-            $request->departure_date
+        $departureDate = $request->departure_date
             ?? $request->date;
 
-
         if (!$departureDate) {
-
             return response()->json([
                 'success' => false,
-                'message' =>
-                    'Departure date is required.'
+                'message' => 'Departure date is required.',
             ], 422);
         }
 
+        $from = strtoupper(trim($request->from));
+        $to = strtoupper(trim($request->to));
 
-        /*
-        |--------------------------------------------------------------------------
-        | Trip Type
-        |--------------------------------------------------------------------------
-        */
+        if ($from === $to) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Origin and destination cannot be the same.',
+            ], 422);
+        }
 
-        $tripType =
-            $request->trip_type ?? 'oneway';
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Round Trip Validation
-        |--------------------------------------------------------------------------
-        */
+        $tripType = $request->trip_type ?? 'oneway';
 
         if (
             $tripType === 'roundtrip'
-            &&
-            !$request->return_date
+            && !$request->return_date
         ) {
-
             return response()->json([
                 'success' => false,
-                'message' =>
-                    'Return date is required for round trip.'
+                'message' => 'Return date is required for round trip.',
             ], 422);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Airport Codes
-        |--------------------------------------------------------------------------
-        */
-
-        $from =
-            strtoupper(trim($request->from));
-
-        $to =
-            strtoupper(trim($request->to));
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Prevent same airport search
-        |--------------------------------------------------------------------------
-        */
-
-        if ($from === $to) {
-
+        if (
+            $request->return_date
+            && $request->return_date < $departureDate
+        ) {
             return response()->json([
                 'success' => false,
-                'message' =>
-                    'Origin and destination cannot be the same.'
+                'message' => 'Return date cannot be before departure date.',
             ], 422);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Passenger Counts
-        |--------------------------------------------------------------------------
-        */
-
-        $adults =
-            (int)($request->adults ?? 1);
-
-        $children =
-            (int)($request->children ?? 0);
-
-        $infants =
-            (int)($request->infants ?? 0);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Infant cannot exceed adult
-        |--------------------------------------------------------------------------
-        */
+        $adults = (int) ($request->adults ?? 1);
+        $children = (int) ($request->children ?? 0);
+        $infants = (int) ($request->infants ?? 0);
 
         if ($infants > $adults) {
-
             return response()->json([
                 'success' => false,
-                'message' =>
-                    'Number of infants cannot exceed number of adults.'
+                'message' => 'Number of infants cannot exceed number of adults.',
             ], 422);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Search Travelport
-        |--------------------------------------------------------------------------
-        */
-
         try {
-
-            $result =
-                $travelport->searchFlights([
-
-                    'from' =>
-                        $from,
-
-                    'to' =>
-                        $to,
-
-                    'departure_date' =>
-                        $departureDate,
-
-                    'return_date' =>
-                        $request->return_date,
-
-                    'trip_type' =>
-                        $tripType,
-
-                    'adults' =>
-                        $adults,
-
-                    'children' =>
-                        $children,
-
-                    'infants' =>
-                        $infants,
-                ]);
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Successful Response
-            |--------------------------------------------------------------------------
-            */
-
-            return response()->json([
-
-                'success' => true,
-
-                'source' =>
-                    'Travelport GDS',
-
-                'search' => [
-
-                    'from' =>
-                        $from,
-
-                    'to' =>
-                        $to,
-
-                    'departure_date' =>
-                        $departureDate,
-
-                    'return_date' =>
-                        $request->return_date,
-
-                    'trip_type' =>
-                        $tripType,
-
-                    'adults' =>
-                        $adults,
-
-                    'children' =>
-                        $children,
-
-                    'infants' =>
-                        $infants,
-                ],
-
-                'data' =>
-                    $result,
+            $result = $letsFG->searchFlights([
+                'from' => $from,
+                'to' => $to,
+                'departure_date' => $departureDate,
+                'return_date' => $request->return_date,
+                'trip_type' => $tripType,
+                'adults' => $adults,
+                'children' => $children,
+                'infants' => $infants,
+                'cabin_class' => $request->cabin_class,
+                'max_stopovers' => $request->max_stopovers,
+                'limit' => $request->limit ?? 50,
             ]);
 
+            return response()->json([
+                'success' => true,
+                'source' => $result['source'],
+                'source_tier' => $result['source_tier'],
+                'message' => 'Flight search completed successfully.',
 
-        } catch (\Throwable $e) {
+                'search' => [
+                    'from' => $from,
+                    'to' => $to,
+                    'departure_date' => $departureDate,
+                    'return_date' => $request->return_date,
+                    'trip_type' => $tripType,
+                    'adults' => $adults,
+                    'children' => $children,
+                    'infants' => $infants,
+                ],
 
-            /*
-            |--------------------------------------------------------------------------
-            | Log Error
-            |--------------------------------------------------------------------------
-            */
+                'pricing' => $result['pricing'],
+                'data' => $result['data'],
+                'warning' => $result['warning'],
+            ]);
 
-            \Log::error(
-                'Travelport Flight Search Error',
-                [
+        } catch (Throwable $e) {
 
-                    'message' =>
-                        $e->getMessage(),
+            Log::error('AirFly Flight Search Error', [
+                'message' => $e->getMessage(),
+                'from' => $from,
+                'to' => $to,
+                'departure_date' => $departureDate,
+            ]);
 
-                    'from' =>
-                        $from,
-
-                    'to' =>
-                        $to,
-
-                    'departure_date' =>
-                        $departureDate,
-
-                    'return_date' =>
-                        $request->return_date,
-
-                    'trip_type' =>
-                        $tripType,
-
-                    'adults' =>
-                        $adults,
-
-                    'children' =>
-                        $children,
-
-                    'infants' =>
-                        $infants,
-                ]
-            );
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Error Response
-            |--------------------------------------------------------------------------
-            */
+            if (
+                str_contains(
+                    $e->getMessage(),
+                    'Please configure exchange rate'
+                )
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
 
             return response()->json([
-
                 'success' => false,
-
-                'source' =>
-                    'Travelport GDS',
-
-                'message' =>
-                    'Unable to search flights from Travelport GDS.',
-
-                /*
-                |--------------------------------------------------------------------------
-                | Show actual error only when APP_DEBUG=true
-                |--------------------------------------------------------------------------
-                */
-
-                'error' =>
-                    config('app.debug')
-                        ? $e->getMessage()
-                        : null,
-
+                'source' => 'LetsFG Sandbox',
+                'message' => 'Unable to search flights. Please try again.',
+                'error' => config('app.debug')
+                    ? $e->getMessage()
+                    : null,
             ], 500);
         }
     }
-
 
     /**
      * Single Flight
@@ -411,90 +221,50 @@ class FlightController extends Controller
     {
         return response()->json([
             'success' => true,
-
-            'flight' =>
-                Flight::with('airline')
-                    ->findOrFail($id)
+            'flight' => Flight::with('airline')
+                ->findOrFail($id)
         ]);
     }
-
 
     /**
      * Update Flight
      */
-    public function update(
-        Request $request,
-        $id
-    ) {
-        $flight =
-            Flight::findOrFail($id);
-
+    public function update(Request $request, $id)
+    {
+        $flight = Flight::findOrFail($id);
 
         $flight->update([
-
-            'airline_id' =>
-                $request->airline_id,
-
-            'flight_no' =>
-                $request->flight_no,
-
-            'from' =>
-                strtoupper($request->from),
-
-            'to' =>
-                strtoupper($request->to),
-
-            'departure_time' =>
-                $request->departure_time,
-
-            'arrival_time' =>
-                $request->arrival_time,
-
-            'economy_fare' =>
-                $request->economy_fare,
-
-            'business_fare' =>
-                $request->business_fare,
-
-            'available_seats' =>
-                $request->available_seats,
-
-            'status' =>
-                $request->status ?? 1,
+            'airline_id' => $request->airline_id,
+            'flight_no' => $request->flight_no,
+            'from' => strtoupper($request->from),
+            'to' => strtoupper($request->to),
+            'departure_time' => $request->departure_time,
+            'arrival_time' => $request->arrival_time,
+            'economy_fare' => $request->economy_fare,
+            'business_fare' => $request->business_fare,
+            'available_seats' => $request->available_seats,
+            'status' => $request->status ?? 1,
         ]);
-
 
         return response()->json([
-
             'success' => true,
-
-            'message' =>
-                'Flight Updated Successfully',
-
-            'flight' =>
-                $flight
+            'message' => 'Flight Updated Successfully',
+            'flight' => $flight
         ]);
     }
-
 
     /**
      * Delete Flight
      */
     public function destroy($id)
     {
-        $flight =
-            Flight::findOrFail($id);
-
+        $flight = Flight::findOrFail($id);
 
         $flight->delete();
 
-
         return response()->json([
-
             'success' => true,
-
-            'message' =>
-                'Flight Deleted Successfully'
+            'message' => 'Flight Deleted Successfully'
         ]);
     }
 }
