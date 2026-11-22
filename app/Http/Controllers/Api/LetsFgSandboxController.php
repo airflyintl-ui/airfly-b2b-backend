@@ -66,9 +66,9 @@ class LetsFgSandboxController extends Controller
         }
 
         if (
-            $input['trip_type'] === 'roundtrip'
-            && empty($input['return_from'])
-        ) {
+           ($input['trip_type'] ?? 'oneway') === 'roundtrip'
+           && empty($input['return_from'])
+         ) {
             return response()->json([
                 'success' => false,
                 'message' => 'Return date is required for round-trip search.',
