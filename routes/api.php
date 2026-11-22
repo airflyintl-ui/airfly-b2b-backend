@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\RechargeController;
 use App\Http\Controllers\Api\AirlineController;
 use App\Http\Controllers\Api\WalletController;
+use App\Http\Controllers\Api\AdminSettingsController;
 
 // API TEST
 Route::get('/', function () {
@@ -57,10 +58,12 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
 });
 
 // PROTECTED ADMIN ROUTES
-Route::middleware(['auth:admin', 'admin.only'])->group(function () {
+    Route::middleware(['auth:admin', 'admin.only'])->group(function () {
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
-
+    // ADMIN SYSTEM SETTINGS
+    Route::get('/admin/settings', [AdminSettingsController::class, 'index']);
+    Route::put('/admin/settings', [AdminSettingsController::class, 'update']);
     // AIRLINE MANAGEMENT
     Route::post('/airlines', [AirlineController::class, 'store']);
     Route::put('/airlines/{id}', [AirlineController::class, 'update']);
