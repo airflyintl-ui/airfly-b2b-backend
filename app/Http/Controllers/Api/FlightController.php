@@ -66,22 +66,29 @@ class FlightController extends Controller
      *
      * POST /api/search-flight
      *
-     * Current supplier: LetsFG Sandbox
+     * Supports:
+     * One Way
+     * Round Trip
+     * Multi-City
      */
     public function search(
         Request $request,
         LetsFGService $letsFG
     ) {
         $request->validate([
-            'from' => 'required|string|size:3',
-            'to' => 'required|string|size:3',
+            'trip_type' => 'nullable|in:oneway,roundtrip,multicity',
+
+            'from' => 'nullable|required_unless:trip_type,multicity|string|size:3',
+            'to' => 'nullable|required_unless:trip_type,multicity|string|size:3',
 
             'date' => 'nullable|date_format:Y-m-d',
             'departure_date' => 'nullable|date_format:Y-m-d',
-
             'return_date' => 'nullable|date_format:Y-m-d',
 
-            'trip_type' => 'nullable|in:oneway,roundtrip',
+            'segments' => 'required_if:trip_type,multicity|array|min:2|max:6',
+            'segments.*.from' => 'required_if:trip_type,multicity|string|size:3',
+            'segments.*.to' => 'required_if:trip_type,multicity|string|size:3',
+            'segments.*.departure_date' => 'required_if:trip_type,multicity|date_format:Y-m-d',
 
             'adults' => 'nullable|integer|min:1|max:9',
             'children' => 'nullable|integer|min:0|max:9',
@@ -92,47 +99,7 @@ class FlightController extends Controller
             'limit' => 'nullable|integer|min:1|max:200',
         ]);
 
-        $departureDate = $request->departure_date
-            ?? $request->date;
-
-        if (!$departureDate) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Departure date is required.',
-            ], 422);
-        }
-
-        $from = strtoupper(trim($request->from));
-        $to = strtoupper(trim($request->to));
-
-        if ($from === $to) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Origin and destination cannot be the same.',
-            ], 422);
-        }
-
-        $tripType = $request->trip_type ?? 'oneway';
-
-        if (
-            $tripType === 'roundtrip'
-            && !$request->return_date
-        ) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Return date is required for round trip.',
-            ], 422);
-        }
-
-        if (
-            $request->return_date
-            && $request->return_date < $departureDate
-        ) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Return date cannot be before departure date.',
-            ], 422);
-        }
+        $tripType = $request->input('trip_type', 'oneway');
 
         $adults = (int) ($request->adults ?? 1);
         $children = (int) ($request->children ?? 0);
@@ -146,15 +113,178 @@ class FlightController extends Controller
         }
 
         try {
+
+            /*
+             * MULTI-CITY SEARCH
+             */
+            if ($tripType === 'multicity') {
+
+                $segments = $request->input('segments', []);
+
+                $previousSegment = null;
+
+                foreach ($segments as $index => $segment) {
+
+                    $from = strtoupper(trim($segment['from']));
+                    $to = strtoupper(trim($segment['to']));
+                    $date = $segment['departure_date'];
+
+                    if ($from === $to) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Origin and destination cannot be the same.',
+                            'segment' => $index + 1,
+                        ], 422);
+                    }
+
+                    if ($previousSegment !== null) {
+
+                        if ($from !== $previousSegment['to']) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Multi-City segments must connect in sequence.',
+                                'segment' => $index + 1,
+                            ], 422);
+                        }
+
+                        if ($date < $previousSegment['departure_date']) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Segment dates must be in chronological order.',
+                                'segment' => $index + 1,
+                            ], 422);
+                        }
+                    }
+
+                    $segments[$index]['from'] = $from;
+                    $segments[$index]['to'] = $to;
+
+                    $previousSegment = [
+                        'to' => $to,
+                        'departure_date' => $date,
+                    ];
+                }
+
+                $segmentResults = [];
+                $pricing = null;
+
+                /*
+                 * Search each segment separately.
+                 */
+                foreach ($segments as $index => $segment) {
+
+                    $result = $letsFG->searchFlights([
+                        'from' => $segment['from'],
+                        'to' => $segment['to'],
+                        'departure_date' => $segment['departure_date'],
+
+                        'adults' => $adults,
+                        'children' => $children,
+                        'infants' => $infants,
+
+                        'cabin_class' => $request->cabin_class,
+                        'max_stopovers' => $request->max_stopovers,
+                        'limit' => $request->limit ?? 50,
+                    ]);
+
+                    $segmentData = $result['data'] ?? [];
+
+                    $pricing = $result['pricing'] ?? $pricing;
+
+                    $segmentResults[] = [
+                        'segment_number' => $index + 1,
+                        'from' => $segment['from'],
+                        'to' => $segment['to'],
+                        'departure_date' => $segment['departure_date'],
+
+                        'total_results' => $segmentData['total_results']
+                            ?? count($segmentData['offers'] ?? []),
+
+                        'offers' => $segmentData['offers'] ?? [],
+                    ];
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'source' => 'LetsFG Sandbox - Test Only',
+                    'source_tier' => 'sandbox',
+                    'message' => 'Multi-City flight search completed successfully.',
+
+                    'search' => [
+                        'trip_type' => 'multicity',
+                        'segments' => $segments,
+                        'adults' => $adults,
+                        'children' => $children,
+                        'infants' => $infants,
+                    ],
+
+                    'pricing' => $pricing,
+
+                    'data' => [
+                        'trip_type' => 'multicity',
+                        'segments' => $segmentResults,
+                    ],
+
+                    'warning' => 'Sandbox results are for testing only. They are not real flight inventory or live bookable fares.',
+                ]);
+            }
+
+            /*
+             * ONE WAY / ROUND TRIP
+             * Existing functionality preserved.
+             */
+
+            $departureDate = $request->departure_date
+                ?? $request->date;
+
+            if (!$departureDate) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Departure date is required.',
+                ], 422);
+            }
+
+            $from = strtoupper(trim($request->from));
+            $to = strtoupper(trim($request->to));
+
+            if ($from === $to) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Origin and destination cannot be the same.',
+                ], 422);
+            }
+
+            if (
+                $tripType === 'roundtrip'
+                && !$request->return_date
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Return date is required for round trip.',
+                ], 422);
+            }
+
+            if (
+                $request->return_date
+                && $request->return_date < $departureDate
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Return date cannot be before departure date.',
+                ], 422);
+            }
+
             $result = $letsFG->searchFlights([
                 'from' => $from,
                 'to' => $to,
                 'departure_date' => $departureDate,
                 'return_date' => $request->return_date,
                 'trip_type' => $tripType,
+
                 'adults' => $adults,
                 'children' => $children,
                 'infants' => $infants,
+
                 'cabin_class' => $request->cabin_class,
                 'max_stopovers' => $request->max_stopovers,
                 'limit' => $request->limit ?? 50,
@@ -186,9 +316,7 @@ class FlightController extends Controller
 
             Log::error('AirFly Flight Search Error', [
                 'message' => $e->getMessage(),
-                'from' => $from,
-                'to' => $to,
-                'departure_date' => $departureDate,
+                'trip_type' => $tripType,
             ]);
 
             if (
