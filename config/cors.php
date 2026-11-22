@@ -16,7 +16,7 @@ return [
 
         // Previous Vercel deployment
         'https://airfly-b2b-portal-cylwt4wrm-airflyintl-uis-projects.vercel.app',
-
+        'https://airfly-b2b-portal-ij7d-7rz8sns8i-airflyintl-uis-projects.vercel.app',
         // Current Vercel deployment
         'https://airfly-b2b-portal-ij7d-git-main-airflyintl-uis-projects.vercel.app',
 
