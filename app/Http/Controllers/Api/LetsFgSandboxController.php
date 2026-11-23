@@ -12,66 +12,60 @@ use Throwable;
 
 class LetsFgSandboxController extends Controller
 {
+    private string $sandboxUrl =
+        'https://letsfg.co/developers/api/v1/sandbox/flights/search';
+
     public function search(Request $request)
     {
-        // Accept both existing AirFly field names and LetsFG field names.
-        $origin = strtoupper(
-            $request->input('from', $request->input('origin', ''))
-        );
+        $tripType = $request->input('trip_type', 'oneway');
 
-        $destination = strtoupper(
-            $request->input('to', $request->input('destination', ''))
-        );
+        $input = $request->all();
 
-        $departureDate = $request->input(
-            'date',
-            $request->input(
-                'departure_date',
-                $request->input('date_from')
-            )
-        );
-
-        $returnDate = $request->input(
-            'return_date',
-            $request->input('return_from')
-        );
-
-        $input = array_merge($request->all(), [
-            'origin' => $origin,
-            'destination' => $destination,
-            'date_from' => $departureDate,
-            'return_from' => $returnDate,
-        ]);
-
-        $validator = Validator::make($input, [
-            'origin' => ['required', 'string', 'size:3'],
-            'destination' => ['required', 'string', 'size:3'],
-            'date_from' => ['required', 'date_format:Y-m-d'],
-            'return_from' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
-            'trip_type' => ['nullable', 'in:oneway,roundtrip'],
+        $rules = [
+            'trip_type' => ['required', 'in:oneway,roundtrip,multicity'],
             'adults' => ['nullable', 'integer', 'min:1', 'max:9'],
             'children' => ['nullable', 'integer', 'min:0', 'max:9'],
             'infants' => ['nullable', 'integer', 'min:0', 'max:9'],
             'cabin_class' => ['nullable', 'in:M,W,C,F'],
             'max_stopovers' => ['nullable', 'integer', 'min:0', 'max:4'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
-        ]);
+        ];
+
+        if ($tripType === 'multicity') {
+            $rules['segments'] = ['required', 'array', 'min:2', 'max:6'];
+            $rules['segments.*.from'] = [
+                'required', 'string', 'regex:/^[A-Za-z]{3}$/'
+            ];
+            $rules['segments.*.to'] = [
+                'required', 'string', 'regex:/^[A-Za-z]{3}$/'
+            ];
+            $rules['segments.*.departure_date'] = [
+                'required', 'date_format:Y-m-d'
+            ];
+        } else {
+            $rules['from'] = [
+                'required', 'string', 'regex:/^[A-Za-z]{3}$/'
+            ];
+            $rules['to'] = [
+                'required', 'string', 'regex:/^[A-Za-z]{3}$/'
+            ];
+            $rules['departure_date'] = [
+                'required', 'date_format:Y-m-d'
+            ];
+            $rules['return_date'] = [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:departure_date'
+            ];
+        }
+
+        $validator = Validator::make($input, $rules);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid flight search information.',
                 'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        if (
-           ($input['trip_type'] ?? 'oneway') === 'roundtrip'
-           && empty($input['return_from'])
-         ) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Return date is required for round-trip search.',
             ], 422);
         }
 
@@ -86,89 +80,197 @@ class LetsFgSandboxController extends Controller
             ], 422);
         }
 
-        // Prepare LetsFG Sandbox request.
-        $payload = [
-            'origin' => $input['origin'],
-            'destination' => $input['destination'],
-            'date_from' => $input['date_from'],
-            'adults' => $input['adults'] ?? 1,
-            'children' => $input['children'] ?? 0,
-            'infants' => $input['infants'] ?? 0,
-            'currency' => 'USD',
-            'limit' => $input['limit'] ?? 50,
-            'sort' => 'price',
-        ];
+        $adults = (int) ($input['adults'] ?? 1);
+        $children = (int) ($input['children'] ?? 0);
+        $infants = (int) ($input['infants'] ?? 0);
 
-        if (!empty($input['return_from'])) {
-            $payload['return_from'] = $input['return_from'];
-        }
-
-        if (!empty($input['cabin_class'])) {
-            $payload['cabin_class'] = $input['cabin_class'];
-        }
-
-        if (isset($input['max_stopovers'])) {
-            $payload['max_stopovers'] = $input['max_stopovers'];
+        if ($infants > $adults) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Infants cannot exceed adults.',
+            ], 422);
         }
 
         try {
-            $response = Http::acceptJson()
-                ->asJson()
-                ->timeout(30)
-                ->post(
-                    'https://letsfg.co/developers/api/v1/sandbox/flights/search',
-                    $payload
-                );
+            /*
+             * MULTI-CITY SEARCH
+             * Each segment is searched separately.
+             */
 
-            if (!$response->successful()) {
-                Log::error('LetsFG Sandbox API Error', [
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                ]);
+            if ($tripType === 'multicity') {
+                $segments = $input['segments'];
 
-                return response()->json([
-                    'success' => false,
-                    'message' => 'LetsFG Sandbox search failed.',
-                    'provider_status' => $response->status(),
-                    'provider_response' => $response->json() ?? $response->body(),
-                ], 502);
-            }
+                for ($i = 0; $i < count($segments); $i++) {
+                    $from = strtoupper($segments[$i]['from']);
+                    $to = strtoupper($segments[$i]['to']);
+                    $date = $segments[$i]['departure_date'];
 
-            $result = $response->json();
-
-            // Calculate AirFly BDT selling price for each USD offer.
-            $offers = collect($result['offers'] ?? [])
-                ->map(function ($offer) use ($exchangeRate, $serviceCharge) {
-
-                    $price = $offer['price'] ?? null;
-                    $currency = strtoupper($offer['currency'] ?? 'USD');
-
-                    $sellingPrice = null;
-
-                    if (
-                        is_numeric($price)
-                        && $currency === 'USD'
-                    ) {
-                        $sellingPrice = round(
-                            ((float) $price * (float) $exchangeRate)
-                            + (float) $serviceCharge,
-                            2
-                        );
+                    if ($from === $to) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Origin and destination cannot be the same in Flight ' . ($i + 1) . '.',
+                        ], 422);
                     }
 
-                    $offer['airfly_price_bdt'] = $sellingPrice;
+                    if ($i > 0) {
+                        $previous = $segments[$i - 1];
 
-                    return $offer;
-                })
-                ->values();
+                        if ($from !== strtoupper($previous['to'])) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Flight ' . ($i + 1) . ' must start from the previous flight destination.',
+                            ], 422);
+                        }
 
-            $result['offers'] = $offers;
+                        if ($date < $previous['departure_date']) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Multi-City flight dates must be in chronological order.',
+                            ], 422);
+                        }
+                    }
+                }
+
+                $multiCityResults = [];
+
+                foreach ($segments as $index => $segment) {
+                    $from = strtoupper($segment['from']);
+                    $to = strtoupper($segment['to']);
+
+                    $payload = [
+                        'origin' => $from,
+                        'destination' => $to,
+                        'date_from' => $segment['departure_date'],
+                        'adults' => $adults,
+                        'children' => $children,
+                        'infants' => $infants,
+                        'currency' => 'USD',
+                        'limit' => $input['limit'] ?? 50,
+                        'sort' => 'price',
+                    ];
+
+                    if (!empty($input['cabin_class'])) {
+                        $payload['cabin_class'] = $input['cabin_class'];
+                    }
+
+                    if (isset($input['max_stopovers'])) {
+                        $payload['max_stopovers'] = $input['max_stopovers'];
+                    }
+
+                    $providerResult = $this->callSandbox($payload);
+
+                    $offers = $this->addAirFlyPrices(
+                        $providerResult['offers'] ?? [],
+                        $exchangeRate,
+                        $serviceCharge,
+                        false
+                    );
+
+                    $multiCityResults[] = [
+                        'segment_number' => $index + 1,
+                        'from' => $from,
+                        'to' => $to,
+                        'departure_date' => $segment['departure_date'],
+                        'offers' => $offers,
+                    ];
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'source' => 'LetsFG Sandbox - Test Only',
+                    'source_tier' => 'sandbox',
+                    'message' => 'Multi-City Sandbox search completed successfully.',
+                    'search' => [
+                        'trip_type' => 'multicity',
+                        'segments' => $segments,
+                        'adults' => $adults,
+                        'children' => $children,
+                        'infants' => $infants,
+                    ],
+                    'pricing' => [
+                        'exchange_rate' => (float) $exchangeRate,
+                        'service_charge' => (float) $serviceCharge,
+                        'currency' => 'BDT',
+                    ],
+                    'data' => [
+                        'segments' => $multiCityResults,
+                    ],
+                    'warning' => 'Sandbox results are simulated only. They cannot be booked.',
+                ]);
+            }
+
+            /*
+             * ONE WAY / ROUND TRIP SEARCH
+             */
+
+            $from = strtoupper($input['from']);
+            $to = strtoupper($input['to']);
+
+            if ($from === $to) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Origin and destination cannot be the same.',
+                ], 422);
+            }
+
+            if (
+                $tripType === 'roundtrip'
+                && empty($input['return_date'])
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Return date is required for round-trip search.',
+                ], 422);
+            }
+
+            $payload = [
+                'origin' => $from,
+                'destination' => $to,
+                'date_from' => $input['departure_date'],
+                'adults' => $adults,
+                'children' => $children,
+                'infants' => $infants,
+                'currency' => 'USD',
+                'limit' => $input['limit'] ?? 50,
+                'sort' => 'price',
+            ];
+
+            if ($tripType === 'roundtrip') {
+                $payload['return_from'] = $input['return_date'];
+            }
+
+            if (!empty($input['cabin_class'])) {
+                $payload['cabin_class'] = $input['cabin_class'];
+            }
+
+            if (isset($input['max_stopovers'])) {
+                $payload['max_stopovers'] = $input['max_stopovers'];
+            }
+
+            $result = $this->callSandbox($payload);
+
+            $result['offers'] = $this->addAirFlyPrices(
+                $result['offers'] ?? [],
+                $exchangeRate,
+                $serviceCharge,
+                true
+            );
 
             return response()->json([
                 'success' => true,
                 'source' => 'LetsFG Sandbox - Test Only',
                 'source_tier' => 'sandbox',
                 'message' => 'Sandbox flight search completed successfully.',
+                'search' => [
+                    'trip_type' => $tripType,
+                    'from' => $from,
+                    'to' => $to,
+                    'departure_date' => $input['departure_date'],
+                    'return_date' => $input['return_date'] ?? null,
+                    'adults' => $adults,
+                    'children' => $children,
+                    'infants' => $infants,
+                ],
                 'pricing' => [
                     'exchange_rate' => (float) $exchangeRate,
                     'service_charge' => (float) $serviceCharge,
@@ -179,15 +281,89 @@ class LetsFgSandboxController extends Controller
             ]);
 
         } catch (Throwable $e) {
-
             Log::error('LetsFG Sandbox Search Exception', [
                 'message' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Unable to connect to LetsFG Sandbox.',
-            ], 500);
+                'message' => 'Unable to complete LetsFG Sandbox search.',
+                'error' => config('app.debug')
+                    ? $e->getMessage()
+                    : null,
+            ], 502);
         }
+    }
+
+    /**
+     * Send one search request to LetsFG Sandbox.
+     */
+    private function callSandbox(array $payload): array
+    {
+        $response = Http::acceptJson()
+            ->asJson()
+            ->timeout(30)
+            ->post($this->sandboxUrl, $payload);
+
+        if (!$response->successful()) {
+            Log::error('LetsFG Sandbox API Error', [
+                'status' => $response->status(),
+                'response' => $response->body(),
+                'payload' => $payload,
+            ]);
+
+            throw new \RuntimeException(
+                'LetsFG Sandbox API returned HTTP ' . $response->status()
+            );
+        }
+
+        $result = $response->json();
+
+        if (!is_array($result)) {
+            throw new \RuntimeException(
+                'Invalid response received from LetsFG Sandbox.'
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Add AirFly BDT price to offers.
+     */
+    private function addAirFlyPrices(
+        array $offers,
+        $exchangeRate,
+        $serviceCharge,
+        bool $includeServiceCharge
+    ): array {
+        return collect($offers)
+            ->map(function ($offer) use (
+                $exchangeRate,
+                $serviceCharge,
+                $includeServiceCharge
+            ) {
+                $price = $offer['price'] ?? null;
+                $currency = strtoupper($offer['currency'] ?? 'USD');
+
+                $sellingPrice = null;
+
+                if (is_numeric($price) && $currency === 'USD') {
+                    $sellingPrice =
+                        (float) $price * (float) $exchangeRate;
+
+                    if ($includeServiceCharge) {
+                        $sellingPrice += (float) $serviceCharge;
+                    }
+
+                    $sellingPrice = round($sellingPrice, 2);
+                }
+
+                $offer['airfly_price_bdt'] = $sellingPrice;
+
+                return $offer;
+            })
+            ->values()
+            ->all();
     }
 }
