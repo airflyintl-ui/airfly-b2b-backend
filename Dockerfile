@@ -59,4 +59,4 @@ RUN php -d display_errors=1 -r "require 'vendor/autoload.php'; require 'bootstra
 EXPOSE 10000
 
 # Start Laravel server
-CMD ["sh", "-c", "php -S 0.0.0.0:${PORT:-10000} -t public public/index.php"]
+CMD ["sh", "-c", "php artisan migrate --path=database/migrations/2026_11_24_000001_create_group_fare_offers_table.php --force && php artisan migrate --path=database/migrations/2026_11_24_000002_create_group_fare_requests_table.php --force && exec php -S 0.0.0.0:${PORT:-10000} -t public public/index.php"]
