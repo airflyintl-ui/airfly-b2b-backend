@@ -39,7 +39,7 @@ Route::get('/airlines/{id}', [AirlineController::class, 'show']);
 Route::get('/flights', [FlightController::class, 'index']);
 Route::get('/flights/{id}', [FlightController::class, 'show']);
 Route::post('/search-flight', [FlightController::class, 'search']);
-
+Route::get('/public/group-fares', [AgentGroupFareController::class, 'index']);
 // PROTECTED AGENT ROUTES
 Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
 
