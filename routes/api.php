@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\RechargeController;
 use App\Http\Controllers\Api\AirlineController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\AdminSettingsController;
+use App\Http\Controllers\Api\AdminGroupFareController;
 
 // API TEST
 Route::get('/', function () {
@@ -63,6 +64,12 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
     Route::middleware(['auth:admin', 'admin.only'])->group(function () {
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
+     // ADMIN GROUP FARE MANAGEMENT
+    Route::get('/admin/group-fares', [AdminGroupFareController::class, 'index']);
+    Route::post('/admin/group-fares', [AdminGroupFareController::class, 'store']);
+    Route::get('/admin/group-fares/{id}', [AdminGroupFareController::class, 'show']);
+    Route::put('/admin/group-fares/{id}', [AdminGroupFareController::class, 'update']);
+    Route::delete('/admin/group-fares/{id}', [AdminGroupFareController::class, 'destroy']);
     // ADMIN SYSTEM SETTINGS
     Route::get('/admin/settings', [AdminSettingsController::class, 'index']);
     Route::put('/admin/settings', [AdminSettingsController::class, 'update']);
