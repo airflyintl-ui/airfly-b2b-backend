@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AdminGroupFareController;
 use App\Http\Controllers\Api\AgentGroupFareController;
+use App\Http\Controllers\Api\AdminGroupFareRequestController;
 
 // API TEST
 Route::get('/', function () {
@@ -70,6 +71,12 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
     Route::middleware(['auth:admin', 'admin.only'])->group(function () {
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
+            // ADMIN GROUP FARE REQUEST MANAGEMENT
+    Route::get('/admin/group-fare-requests', [AdminGroupFareRequestController::class, 'index']);
+
+    Route::get('/admin/group-fare-requests/{id}', [AdminGroupFareRequestController::class, 'show']);
+
+    Route::put('/admin/group-fare-requests/{id}', [AdminGroupFareRequestController::class, 'update']);
      // ADMIN GROUP FARE MANAGEMENT
     Route::get('/admin/group-fares', [AdminGroupFareController::class, 'index']);
     Route::post('/admin/group-fares', [AdminGroupFareController::class, 'store']);
