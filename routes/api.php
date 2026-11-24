@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AirlineController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AdminGroupFareController;
+use App\Http\Controllers\Api\AgentGroupFareController;
 
 // API TEST
 Route::get('/', function () {
@@ -57,6 +58,11 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
     Route::get('/bookings/{id}', [BookingController::class, 'show']);
     Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel']);
     Route::get('/bookings/{id}/invoice', [BookingController::class, 'invoice']);
+
+    // AGENT GROUP FARE
+    Route::get('/group-fares', [AgentGroupFareController::class, 'index']);
+    Route::post('/group-fare-requests', [AgentGroupFareController::class, 'store']);
+    Route::get('/group-fare-requests', [AgentGroupFareController::class, 'myRequests']);
 
 });
 
