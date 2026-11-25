@@ -7,7 +7,9 @@ use App\Models\VisaInformation;
 use App\Models\VisaRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Throwable;
 
 class AgentVisaRequestController extends Controller
 {
@@ -35,8 +37,6 @@ class AgentVisaRequestController extends Controller
             ], 422);
         }
 
-        // Find the selected active visa information.
-        // Supports China, Thailand and other countries.
         $visa = VisaInformation::where(
             'id',
             $request->visa_information_id
@@ -56,12 +56,21 @@ class AgentVisaRequestController extends Controller
         $uploadedDocuments = [];
 
         foreach ($request->file('documents') as $document) {
+            if (!$document->isValid()) {
+                Log::warning('Invalid visa document received.');
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The selected document is invalid. Please upload it again.',
+                ], 422);
+            }
+
             $uploaded = $this->uploadToCloudinary($document);
 
             if (!$uploaded) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Document upload failed. Please try again.',
+                    'message' => 'Document upload failed. Please check the server logs.',
                 ], 500);
             }
 
@@ -73,7 +82,6 @@ class AgentVisaRequestController extends Controller
             ];
         }
 
-        // Save the selected country's information with the request.
         $visaRequest = VisaRequest::create([
             'agent_id' => $agentId,
             'visa_information_id' => $visa->id,
@@ -153,63 +161,107 @@ class AgentVisaRequestController extends Controller
             ?: env('CLOUDINARY_API_SECRET');
 
         if (!$cloudName || !$apiKey || !$apiSecret) {
+            Log::error('Cloudinary configuration is incomplete.', [
+                'cloud_name_configured' => !empty($cloudName),
+                'api_key_configured' => !empty($apiKey),
+                'api_secret_configured' => !empty($apiSecret),
+            ]);
+
             return null;
         }
 
-        $timestamp = time();
+        try {
+            $timestamp = time();
+            $folder = 'airfly/visa-documents';
 
-        $folder = 'airfly/visa-documents';
+            // Cloudinary signature parameters must be alphabetically sorted.
+            $signatureParameters = [
+                'folder' => $folder,
+                'timestamp' => $timestamp,
+            ];
 
-        $signatureParameters = [
-            'folder' => $folder,
-            'timestamp' => $timestamp,
-        ];
+            ksort($signatureParameters);
 
-        ksort($signatureParameters);
+            $signatureParts = [];
 
-        $signatureString = '';
+            foreach ($signatureParameters as $key => $value) {
+                $signatureParts[] = $key . '=' . $value;
+            }
 
-        foreach ($signatureParameters as $key => $value) {
-            $signatureString .= $key . '=' . $value . '&';
-        }
+            $signatureString = implode('&', $signatureParts);
 
-        $signatureString = rtrim($signatureString, '&');
+            $signature = sha1($signatureString . $apiSecret);
 
-        $signature = sha1($signatureString . $apiSecret);
+            $fileContents = file_get_contents($file->getRealPath());
 
-        $response = Http::timeout(60)
-            ->attach(
-                'file',
-                file_get_contents($file->getRealPath()),
-                $file->getClientOriginalName()
-            )
-            ->post(
-                "https://api.cloudinary.com/v1_1/{$cloudName}/auto/upload",
-                [
-                    'api_key' => $apiKey,
-                    'timestamp' => $timestamp,
-                    'folder' => $folder,
-                    'signature' => $signature,
-                ]
-            );
+            if ($fileContents === false) {
+                Log::error('Could not read visa document before Cloudinary upload.');
 
-        if (!$response->successful()) {
+                return null;
+            }
+
+            $response = Http::connectTimeout(15)
+                ->timeout(60)
+                ->attach(
+                    'file',
+                    $fileContents,
+                    $file->getClientOriginalName()
+                )
+                ->post(
+                    "https://api.cloudinary.com/v1_1/{$cloudName}/auto/upload",
+                    [
+                        'api_key' => $apiKey,
+                        'timestamp' => $timestamp,
+                        'folder' => $folder,
+                        'signature' => $signature,
+                    ]
+                );
+
+            if (!$response->successful()) {
+                $result = $response->json();
+
+                Log::error('Cloudinary visa document upload rejected.', [
+                    'http_status' => $response->status(),
+                    'cloudinary_error' => data_get(
+                        $result,
+                        'error.message',
+                        'Unknown Cloudinary error'
+                    ),
+                ]);
+
+                return null;
+            }
+
+            $result = $response->json();
+
+            if (
+                empty($result['secure_url']) ||
+                empty($result['public_id'])
+            ) {
+                Log::error('Cloudinary response missing required fields.', [
+                    'http_status' => $response->status(),
+                    'secure_url_received' => !empty($result['secure_url']),
+                    'public_id_received' => !empty($result['public_id']),
+                ]);
+
+                return null;
+            }
+
+            Log::info('Visa document uploaded to Cloudinary successfully.');
+
+            return [
+                'url' => $result['secure_url'],
+                'public_id' => $result['public_id'],
+                'resource_type' => $result['resource_type'] ?? 'raw',
+            ];
+
+        } catch (Throwable $e) {
+            Log::error('Cloudinary visa upload exception.', [
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+
             return null;
         }
-
-        $result = $response->json();
-
-        if (
-            empty($result['secure_url']) ||
-            empty($result['public_id'])
-        ) {
-            return null;
-        }
-
-        return [
-            'url' => $result['secure_url'],
-            'public_id' => $result['public_id'],
-            'resource_type' => $result['resource_type'] ?? 'raw',
-        ];
     }
 }
