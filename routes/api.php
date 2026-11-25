@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AdminGroupFareController;
 use App\Http\Controllers\Api\AgentGroupFareController;
 use App\Http\Controllers\Api\AdminGroupFareRequestController;
+use App\Http\Controllers\Api\AdminHomepagePosterController;
 
 // API TEST
 Route::get('/', function () {
@@ -39,21 +40,34 @@ Route::get('/airlines/{id}', [AirlineController::class, 'show']);
 Route::get('/flights', [FlightController::class, 'index']);
 Route::get('/flights/{id}', [FlightController::class, 'show']);
 Route::post('/search-flight', [FlightController::class, 'search']);
+
+// PUBLIC GROUP FARES
 Route::get('/public/group-fares', [AgentGroupFareController::class, 'index']);
+
+// PUBLIC HOMEPAGE POSTERS
+Route::get('/public/homepage-posters', [
+    AdminHomepagePosterController::class,
+    'publicIndex'
+]);
+
 // PROTECTED AGENT ROUTES
 Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
-// LETSFG SANDBOX FLIGHT SEARCH - TEST ONLY
+
+    // LETSFG SANDBOX FLIGHT SEARCH - TEST ONLY
     Route::post('/sandbox/search-flight', [LetsFgSandboxController::class, 'search']);
+
     Route::get('/wallet/statement', [WalletController::class, 'statement']);
 
+    // RECHARGES
     Route::get('/recharges', [RechargeController::class, 'index']);
     Route::post('/recharges', [RechargeController::class, 'store']);
     Route::get('/recharges/{id}', [RechargeController::class, 'show']);
 
+    // BOOKINGS
     Route::get('/bookings', [BookingController::class, 'index']);
     Route::post('/bookings', [BookingController::class, 'store']);
     Route::get('/bookings/{id}', [BookingController::class, 'show']);
@@ -68,24 +82,33 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
 });
 
 // PROTECTED ADMIN ROUTES
-    Route::middleware(['auth:admin', 'admin.only'])->group(function () {
+Route::middleware(['auth:admin', 'admin.only'])->group(function () {
 
+    // ADMIN DASHBOARD
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
-            // ADMIN GROUP FARE REQUEST MANAGEMENT
+
+    // ADMIN GROUP FARE REQUEST MANAGEMENT
     Route::get('/admin/group-fare-requests', [AdminGroupFareRequestController::class, 'index']);
-
     Route::get('/admin/group-fare-requests/{id}', [AdminGroupFareRequestController::class, 'show']);
-
     Route::put('/admin/group-fare-requests/{id}', [AdminGroupFareRequestController::class, 'update']);
-     // ADMIN GROUP FARE MANAGEMENT
+
+    // ADMIN GROUP FARE MANAGEMENT
     Route::get('/admin/group-fares', [AdminGroupFareController::class, 'index']);
     Route::post('/admin/group-fares', [AdminGroupFareController::class, 'store']);
     Route::get('/admin/group-fares/{id}', [AdminGroupFareController::class, 'show']);
     Route::put('/admin/group-fares/{id}', [AdminGroupFareController::class, 'update']);
     Route::delete('/admin/group-fares/{id}', [AdminGroupFareController::class, 'destroy']);
+
+    // ADMIN HOMEPAGE POSTER MANAGEMENT
+    Route::get('/admin/homepage-posters', [AdminHomepagePosterController::class, 'index']);
+    Route::post('/admin/homepage-posters', [AdminHomepagePosterController::class, 'store']);
+    Route::post('/admin/homepage-posters/{id}', [AdminHomepagePosterController::class, 'update']);
+    Route::delete('/admin/homepage-posters/{id}', [AdminHomepagePosterController::class, 'destroy']);
+
     // ADMIN SYSTEM SETTINGS
     Route::get('/admin/settings', [AdminSettingsController::class, 'index']);
     Route::put('/admin/settings', [AdminSettingsController::class, 'update']);
+
     // AIRLINE MANAGEMENT
     Route::post('/airlines', [AirlineController::class, 'store']);
     Route::put('/airlines/{id}', [AirlineController::class, 'update']);
@@ -114,7 +137,6 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
     Route::get('/admin/agents/{id}/wallet-transactions', [WalletController::class, 'adminStatement']);
     Route::post('/admin/agents/{id}/wallet-adjustments', [WalletController::class, 'adminAdjust']);
 
-   
     // ADMIN LOGOUT
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
 
