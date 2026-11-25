@@ -18,6 +18,9 @@ use App\Http\Controllers\Api\AdminGroupFareController;
 use App\Http\Controllers\Api\AgentGroupFareController;
 use App\Http\Controllers\Api\AdminGroupFareRequestController;
 use App\Http\Controllers\Api\AdminHomepagePosterController;
+use App\Http\Controllers\Api\AdminVisaInformationController;
+use App\Http\Controllers\Api\AgentVisaRequestController;
+use App\Http\Controllers\Api\AdminVisaRequestController;
 
 // API TEST
 Route::get('/', function () {
@@ -50,6 +53,12 @@ Route::get('/public/homepage-posters', [
     'publicIndex'
 ]);
 
+// PUBLIC CHINA VISA INFORMATION
+Route::get('/public/visa-information', [
+    AdminVisaInformationController::class,
+    'publicIndex'
+]);
+
 // PROTECTED AGENT ROUTES
 Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
 
@@ -60,6 +69,7 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
     // LETSFG SANDBOX FLIGHT SEARCH - TEST ONLY
     Route::post('/sandbox/search-flight', [LetsFgSandboxController::class, 'search']);
 
+    // WALLET
     Route::get('/wallet/statement', [WalletController::class, 'statement']);
 
     // RECHARGES
@@ -79,6 +89,21 @@ Route::middleware(['auth:sanctum', 'agent.only'])->group(function () {
     Route::post('/group-fare-requests', [AgentGroupFareController::class, 'store']);
     Route::get('/group-fare-requests', [AgentGroupFareController::class, 'myRequests']);
 
+    // AGENT VISA APPLICATIONS
+    Route::post('/visa-requests', [
+        AgentVisaRequestController::class,
+        'store'
+    ]);
+
+    Route::get('/visa-requests', [
+        AgentVisaRequestController::class,
+        'index'
+    ]);
+
+    Route::get('/visa-requests/{id}', [
+        AgentVisaRequestController::class,
+        'show'
+    ]);
 });
 
 // PROTECTED ADMIN ROUTES
@@ -104,6 +129,48 @@ Route::middleware(['auth:admin', 'admin.only'])->group(function () {
     Route::post('/admin/homepage-posters', [AdminHomepagePosterController::class, 'store']);
     Route::post('/admin/homepage-posters/{id}', [AdminHomepagePosterController::class, 'update']);
     Route::delete('/admin/homepage-posters/{id}', [AdminHomepagePosterController::class, 'destroy']);
+
+    // ADMIN VISA INFORMATION MANAGEMENT
+    Route::get('/admin/visa-information', [
+        AdminVisaInformationController::class,
+        'index'
+    ]);
+
+    Route::get('/admin/visa-information/{id}', [
+        AdminVisaInformationController::class,
+        'show'
+    ]);
+
+    Route::post('/admin/visa-information', [
+        AdminVisaInformationController::class,
+        'store'
+    ]);
+
+    Route::put('/admin/visa-information/{id}', [
+        AdminVisaInformationController::class,
+        'update'
+    ]);
+
+    Route::delete('/admin/visa-information/{id}', [
+        AdminVisaInformationController::class,
+        'destroy'
+    ]);
+
+    // ADMIN VISA REQUEST MANAGEMENT
+    Route::get('/admin/visa-requests', [
+        AdminVisaRequestController::class,
+        'index'
+    ]);
+
+    Route::get('/admin/visa-requests/{id}', [
+        AdminVisaRequestController::class,
+        'show'
+    ]);
+
+    Route::put('/admin/visa-requests/{id}', [
+        AdminVisaRequestController::class,
+        'update'
+    ]);
 
     // ADMIN SYSTEM SETTINGS
     Route::get('/admin/settings', [AdminSettingsController::class, 'index']);
