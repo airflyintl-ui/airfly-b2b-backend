@@ -35,15 +35,19 @@ class AgentVisaRequestController extends Controller
             ], 422);
         }
 
-        $visa = VisaInformation::where('id', $request->visa_information_id)
-            ->where('destination_country', 'China')
+        // Find the selected active visa information.
+        // Supports China, Thailand and other countries.
+        $visa = VisaInformation::where(
+            'id',
+            $request->visa_information_id
+        )
             ->where('is_active', true)
             ->first();
 
         if (!$visa) {
             return response()->json([
                 'success' => false,
-                'message' => 'Selected China visa information is unavailable.',
+                'message' => 'Selected visa information is unavailable.',
             ], 404);
         }
 
@@ -69,10 +73,11 @@ class AgentVisaRequestController extends Controller
             ];
         }
 
+        // Save the selected country's information with the request.
         $visaRequest = VisaRequest::create([
             'agent_id' => $agentId,
             'visa_information_id' => $visa->id,
-            'destination_country' => 'China',
+            'destination_country' => $visa->destination_country,
             'visa_type' => $visa->visa_type,
             'passenger_name' => $request->passenger_name,
             'passport_number' => $request->passport_number,
