@@ -14,7 +14,9 @@ class AdminVisaInformationController extends Controller
      */
     public function index()
     {
-        $visaInformation = VisaInformation::orderBy('id')->get();
+        $visaInformation = VisaInformation::orderBy('destination_country')
+            ->orderBy('visa_type')
+            ->get();
 
         return response()->json([
             'success' => true,
@@ -72,7 +74,7 @@ class AdminVisaInformationController extends Controller
 
         $data = $validator->validated();
 
-        $data['destination_country'] = 'China';
+        $data['is_active'] = $data['is_active'] ?? true;
 
         $visa = VisaInformation::create($data);
 
@@ -98,6 +100,7 @@ class AdminVisaInformationController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
+            'destination_country' => 'sometimes|required|string|max:100',
             'visa_type' => 'sometimes|required|string|max:100',
             'processing_time' => 'sometimes|nullable|string|max:100',
             'validity' => 'sometimes|nullable|string|max:100',
@@ -151,15 +154,12 @@ class AdminVisaInformationController extends Controller
     }
 
     /**
-     * Public active visa information.
+     * Public active visa information for all countries.
      */
     public function publicIndex()
     {
-        $visaInformation = VisaInformation::where(
-            'destination_country',
-            'China'
-        )
-            ->where('is_active', true)
+        $visaInformation = VisaInformation::where('is_active', true)
+            ->orderBy('destination_country')
             ->orderBy('visa_type')
             ->get();
 
