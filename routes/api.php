@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\AdminHomepagePosterController;
 use App\Http\Controllers\Api\AdminVisaInformationController;
 use App\Http\Controllers\Api\AgentVisaRequestController;
 use App\Http\Controllers\Api\AdminVisaRequestController;
+use App\Http\Controllers\Api\ContactController;
 
 // API TEST
 Route::get('/', function () {
@@ -34,6 +35,9 @@ Route::get('/', function () {
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+// PUBLIC CONTACT FORM
+Route::post('/contact', [ContactController::class, 'send'])
+    ->middleware('throttle:5,1');
 
 // PUBLIC AIRLINES
 Route::get('/airlines', [AirlineController::class, 'index']);
