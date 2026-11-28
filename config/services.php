@@ -31,4 +31,9 @@ return [
         'api_secret' => env('CLOUDINARY_API_SECRET'),
     ],
 
+    'brevo' => [
+        'api_key' => env('BREVO_API_KEY'),
+        'endpoint' => 'https://api.brevo.com/v3/smtp/email',
+    ],
+
 ];
