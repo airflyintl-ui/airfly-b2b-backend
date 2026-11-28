@@ -21,6 +21,10 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Increase PHP upload limits
+RUN printf "upload_max_filesize=10M\npost_max_size=12M\nmax_file_uploads=20\n" \
+    > /usr/local/etc/php/conf.d/uploads.ini
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -59,8 +63,4 @@ RUN php -d display_errors=1 -r "require 'vendor/autoload.php'; require 'bootstra
 EXPOSE 10000
 
 # Start Laravel server
-
-
-
 CMD ["sh", "-c", "php artisan migrate --path=database/migrations/2026_11_24_000001_create_group_fare_offers_table.php --force && php artisan migrate --path=database/migrations/2026_11_24_000002_create_group_fare_requests_table.php --force && php artisan migrate --path=database/migrations/2026_11_25_000003_create_homepage_posters_table.php --force && php artisan migrate --path=database/migrations/2026_11_25_000004_create_visa_informations_table.php --force && php artisan migrate --path=database/migrations/2026_11_25_000005_create_visa_requests_table.php --force && php artisan migrate:status && exec php -S 0.0.0.0:${PORT:-10000} -t public public/index.php"]
-
